@@ -130,3 +130,36 @@ Work Log:
 Stage Summary:
 - App complète et navigable. Lint 0 erreurs, compilation OK.
 - Prochaine étape : vérification Agent Browser (render + golden path + responsive + sticky footer), puis git push.
+
+---
+Task ID: 5
+Agent: main (Z.ai Code)
+Task: Vérification end-to-end via Agent Browser (render + golden path + responsive + sticky footer) + corrections.
+
+Work Log:
+- Agent Browser : home rendue (slogan/CTA visibles, design gaming validé par VLM).
+- Golden path : Home → ClassSelect (Mage+Classé) → Duel → combat → Results. Mécaniques vérifiées via log : crit Assassin ×2.5=50, passif Guerrier erreur=5, timeout→regen adverse, combos, avancement questions.
+- BUG CRITIQUE trouvé & corrigé : genPct ("p% de base") et genPow ("n²") produisaient des expressions non-évaluables par Function() → crash createDuel/advance. Refactor : calcul direct des réponses (plus de genText pour ces cas) + try/catch + fallback addition dans generateQuestion.
+- BUG trouvé & corrigé : ResultsScreen — setLastResult dans .then changeait une dep de l'effect → cleanup annulait setSaving(false) → skeleton Elo éternel. Refactor avec état `saved` séparé (ne change pas les deps).
+- BUG trouvé & corrigé : bouton "Entrer" sticky recouvrait le bouton Blitz → ajout pb-28 au conteneur ClassSelect.
+- BUG trouvé & corrigé : imports page.tsx (subagent utilisait export default) → imports default.
+- Affichage : suffixe " = ?" retiré pour les questions de suites (déjà "…?").
+- Vérifié : Results affiche Elo 968 -16 🥉 Bronze +30 XP. Profil (stats + charts Elo/winrate + historique). Classement (podium + table + badges BOT). Règles. Mobile 390px : pas d'overflow, home validée VLM. Footer sticky (min-h-screen flex-col + mt-auto).
+- DB réinitialisée état propre (Joueur, 1000 Elo, 0 match). Lint 0 erreurs.
+
+Stage Summary:
+- App vérifiée de bout en bout, interactive, responsive. Tous les bugs bloquants corrigés.
+
+---
+Task ID: 6
+Agent: main (Z.ai Code)
+Task: Git push vers MathARENA repo + paramètres GitHub Pages.
+
+Work Log:
+- .gitignore complété (dev.log, verify-*.png, db/*.db, upload/, skills/, etc.).
+- Commit complet (thème, game logic, backend, écrans, store, worklog).
+- Push sur https://github.com/Skailex239/MathARENA.git branche main : OK.
+
+Stage Summary:
+- Code livré sur GitHub (main). 
+- NOTE honnête pour l'utilisateur : GitHub Pages = statique uniquement, ne peut PAS exécuter les API routes Next.js ni Prisma. Recommandation : Vercel (full-stack, zéro config). Pages possible seulement via static export + persistance localStorage (refactor à prévoir).
