@@ -1,0 +1,52 @@
+// MathArena — Prisma schema (SQLite)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Le joueur humain local (id=1) + les bots du leaderboard.
+model Player {
+  id        Int      @id @default(autoincrement())
+  isBot     Boolean  @default(false)
+  name      String
+  elo       Int      @default(1000)
+  level     Int      @default(1)
+  xp        Int      @default(0)
+  wins      Int      @default(0)
+  losses    Int      @default(0)
+  bestCombo Int      @default(0)
+  title     String?
+  class     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  matches   Match[]
+
+  @@map("players")
+}
+
+/// Historique des duels du joueur local.
+model Match {
+  id            Int      @id @default(autoincrement())
+  playerId      Int
+  player        Player   @relation(fields: [playerId], references: [id])
+  playerClass   String
+  opponentClass String
+  opponentName  String
+  result        String // WIN | LOSE
+  playerHP      Int
+  opponentHP    Int
+  maxCombo      Int
+  avgTimeMs     Int
+  accuracy      Float
+  mode          String // PRACTICE | QUICK | BLITZ | RANKED
+  eloChange     Int     @default(0)
+  eloAfter      Int     @default(1000)
+  xpGained      Int     @default(0)
+  createdAt     DateTime @default(now())
+
+  @@map("matches")
+}
