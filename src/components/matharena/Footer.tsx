@@ -7,7 +7,8 @@ export function Footer() {
   return (
     <footer className="mt-auto py-6 border-t border-[#ebe2d2]">
       <div className="mx-auto max-w-7xl px-4 flex items-center justify-between gap-4 text-xs text-[#9c8e7a]">
-        <span>
+        <span className="flex items-center gap-2">
+          <img src="/logo-matharena.png" alt="MathArena" className="w-5 h-5 object-contain" />
           <span className="font-medium text-[#6b5f4f]">MathArena</span> — Ton cerveau est ton arme.
         </span>
         <div className="flex items-center gap-4">

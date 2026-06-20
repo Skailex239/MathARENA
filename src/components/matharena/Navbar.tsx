@@ -18,13 +18,11 @@ export function Navbar() {
   const setView = useApp((s) => s.setView);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#ebe2d2] bg-[#f5efe6]/95 backdrop-blur-sm">
-      <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between gap-3">
-        <button onClick={() => setView("home")} className="flex items-center gap-2 group shrink-0">
-          <span className="grid place-items-center w-7 h-7 rounded-md bg-[#e8823d] text-[#faf6f0] font-bold text-sm">
-            M
-          </span>
-          <span className="font-semibold text-sm tracking-[-0.01em] text-[#2a2520]">
+    <header className="sticky top-0 z-40 border-b border-[#ebe2d2] bg-[#f5efe6]/90 backdrop-blur-md">
+      <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between gap-3">
+        <button onClick={() => setView("home")} className="flex items-center gap-2.5 group shrink-0">
+          <img src="/logo-matharena.png" alt="MathArena" className="w-8 h-8 object-contain drop-shadow-sm" />
+          <span className="font-semibold text-base tracking-[-0.01em] text-[#2a2520]">
             Math<span className="text-[#e8823d]">Arena</span>
           </span>
         </button>

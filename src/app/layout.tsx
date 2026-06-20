@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     "brain game",
   ],
   authors: [{ name: "MathArena" }],
-  icons: { icon: "/logo.svg" },
+  icons: { icon: "/logo-matharena.png" },
   openGraph: {
     title: "MathArena — Ton cerveau est ton arme.",
     description: "Plateforme compétitive de duel 1v1 de calcul mental.",
