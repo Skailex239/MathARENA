@@ -1,0 +1,894 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useMemo, useState } from "react";
+     4→import { Pencil, Save, X, AlertCircle, Clock } from "lucide-react";
+     5→import {
+     6→  CartesianGrid,
+     7→  Line,
+     8→  LineChart,
+     9→  ResponsiveContainer,
+    10→  Tooltip as RTooltip,
+    11→  XAxis,
+    12→  YAxis,
+    13→  Bar,
+    14→  BarChart,
+    15→  Legend,
+    16→} from "recharts";
+    17→import { formatDistanceToNow } from "date-fns";
+    18→import { fr } from "date-fns/locale";
+    19→import { toast } from "sonner";
+    20→
+    21→import { Btn, Panel, PageTitle, SectionLabel, StatTile, RankBadge, Tabs, DataTable } from "@/components/matharena/ui";
+    22→import { api, type Profile, type MatchRecord } from "@/lib/api";
+    23→import { useApp } from "@/lib/store";
+    24→import { CLASSES } from "@/lib/game/classes";
+    25→import type { Universe } from "@/lib/game/progression";
+    26→import { cn } from "@/lib/utils";
+    27→
+    28→/* ============================================================
+    29→   ProfileScreen — Chess.com dashboard style
+    30→   Sidebar nav + Overview / Stats / Games (real) + Achievements / Settings (todo)
+    31→   Affiche les stats des DEUX univers (Compétitif + Arène).
+    32→   ============================================================ */
+    33→
+    34→type Tab = "overview" | "stats" | "games" | "achievements" | "settings";
+    35→type RatingUniverse = Universe;
+    36→
+    37→const NAV: { id: Tab; label: string; available: boolean }[] = [
+    38→  { id: "overview", label: "Vue d'ensemble", available: true },
+    39→  { id: "stats", label: "Statistiques", available: true },
+    40→  { id: "games", label: "Parties", available: true },
+    41→  { id: "achievements", label: "Succès", available: false },
+    42→  { id: "settings", label: "Réglages", available: false },
+    43→];
+    44→
+    45→const MODE_LABEL: Record<string, string> = {
+    46→  PRACTICE: "Entraînement",
+    47→  QUICK: "Rapide",
+    48→  BLITZ: "Blitz",
+    49→  RANKED: "Classé",
+    50→};
+    51→
+    52→export default function ProfileScreen() {
+    53→  const setView = useApp((s) => s.setView);
+    54→
+    55→  const [profile, setProfile] = useState<Profile | null>(null);
+    56→  const [matches, setMatches] = useState<MatchRecord[]>([]);
+    57→  const [loading, setLoading] = useState(true);
+    58→  const [error, setError] = useState<string | null>(null);
+    59→  const [tab, setTab] = useState<Tab>("overview");
+    60→
+    61→  const reload = useCallback(async () => {
+    62→    setLoading(true);
+    63→    setError(null);
+    64→    try {
+    65→      const [p, m] = await Promise.all([api.getProfile(), api.getMatches(50)]);
+    66→      setProfile(p);
+    67→      setMatches(m);
+    68→    } catch (e) {
+    69→      setError(e instanceof Error ? e.message : "Erreur de chargement");
+    70→    } finally {
+    71→      setLoading(false);
+    72→    }
+    73→  }, []);
+    74→
+    75→  useEffect(() => {
+    76→    void reload();
+    77→  }, [reload]);
+    78→
+    79→  return (
+    80→    <div className="mx-auto max-w-7xl px-4 py-6">
+    81→      {/* Mobile horizontal nav */}
+    82→      <nav className="mb-4 flex gap-1 overflow-x-auto scrollbar-none lg:hidden">
+    83→        {NAV.map((n) => (
+    84→          <button
+    85→            key={n.id}
+    86→            type="button"
+    87→            onClick={() => n.available && setTab(n.id)}
+    88→            disabled={!n.available}
+    89→            className={cn(
+    90→              "whitespace-nowrap px-3 py-1.5 text-sm font-medium rounded-md border transition-colors",
+    91→              !n.available && "opacity-50 cursor-not-allowed",
+    92→              tab === n.id
+    93→                ? "bg-[#3b82f6] text-white border-[#3b82f6]"
+    94→                : "bg-transparent text-[#9ba4b0] border-[#2d333b] hover:bg-[#22272e] hover:text-[#e6edf3]",
+    95→            )}
+    96→          >
+    97→            {n.label}
+    98→            {!n.available && <span className="ml-1.5 text-[10px] uppercase text-[#6e7681]">bientôt</span>}
+    99→          </button>
+   100→        ))}
+   101→      </nav>
+   102→
+   103→      <div className="flex gap-6">
+   104→        {/* Desktop sidebar */}
+   105→        <aside className="hidden lg:block w-[200px] shrink-0">
+   106→          <div className="sticky top-20">
+   107→            <SectionLabel className="mb-2">Navigation</SectionLabel>
+   108→            <nav className="flex flex-col gap-0.5">
+   109→              {NAV.map((n) => (
+   110→                <button
+   111→                  key={n.id}
+   112→                  type="button"
+   113→                  onClick={() => n.available && setTab(n.id)}
+   114→                  disabled={!n.available}
+   115→                  className={cn(
+   116→                    "flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+   117→                    !n.available && "opacity-50 cursor-not-allowed",
+   118→                    tab === n.id
+   119→                      ? "bg-[#1c2128] text-[#e6edf3] border-l-2 border-[#3b82f6] pl-[10px]"
+   120→                      : "text-[#9ba4b0] hover:text-[#e6edf3] hover:bg-[#1c2128]",
+   121→                  )}
+   122→                >
+   123→                  <span>{n.label}</span>
+   124→                  {!n.available && <span className="text-[10px] uppercase text-[#6e7681]">bientôt</span>}
+   125→                </button>
+   126→              ))}
+   127→            </nav>
+   128→          </div>
+   129→        </aside>
+   130→
+   131→        {/* Main */}
+   132→        <div className="min-w-0 flex-1">
+   133→          {loading ? (
+   134→            <ProfileSkeleton />
+   135→          ) : error ? (
+   136→            <Panel className="p-6 flex items-center gap-3 text-sm text-[#9ba4b0]">
+   137→              <AlertCircle className="w-4 h-4 text-[#f85149] shrink-0" />
+   138→              <span className="flex-1">{error}</span>
+   139→              <Btn size="sm" variant="secondary" onClick={() => void reload()}>
+   140→                Réessayer
+   141→              </Btn>
+   142→            </Panel>
+   143→          ) : !profile ? null : tab === "overview" ? (
+   144→            <Overview profile={profile} matches={matches} onProfileChange={setProfile} />
+   145→          ) : tab === "stats" ? (
+   146→            <StatsTab profile={profile} matches={matches} />
+   147→          ) : tab === "games" ? (
+   148→            <GamesTab matches={matches} />
+   149→          ) : (
+   150→            <ComingSoon />
+   151→          )}
+   152→
+   153→          {/* Common actions */}
+   154→          <div className="mt-6 flex items-center gap-2">
+   155→            <Btn size="sm" variant="secondary" onClick={() => setView("classselect")}>
+   156→              Nouveau duel
+   157→            </Btn>
+   158→            <Btn size="sm" variant="ghost" onClick={() => setView("leaderboard")}>
+   159→              Classement
+   160→            </Btn>
+   161→          </div>
+   162→        </div>
+   163→      </div>
+   164→    </div>
+   165→  );
+   166→}
+   167→
+   168→/* ----------------------------------------------------------------
+   169→   Overview
+   170→   ---------------------------------------------------------------- */
+   171→
+   172→function Overview({
+   173→  profile,
+   174→  matches,
+   175→  onProfileChange,
+   176→}: {
+   177→  profile: Profile;
+   178→  matches: MatchRecord[];
+   179→  onProfileChange: (p: Profile) => void;
+   180→}) {
+   181→  const setView = useApp((s) => s.setView);
+   182→  const [ratingUniverse, setRatingUniverse] = useState<RatingUniverse>("competitive");
+   183→
+   184→  const recent = useMemo(() => matches.slice(0, 10), [matches]);
+   185→
+   186→  const ratingData = useMemo(() => {
+   187→    const filtered = matches
+   188→      .filter((m) => m.universe === ratingUniverse)
+   189→      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+   190→    return filtered.map((m, i) => ({ match: i + 1, elo: m.eloAfter }));
+   191→  }, [matches, ratingUniverse]);
+   192→
+   193→  // Stats compétitif (depuis matchs compétitifs)
+   194→  const compMatches = useMemo(() => matches.filter((m) => m.universe === "competitive"), [matches]);
+   195→  const arenaMatches = useMemo(() => matches.filter((m) => m.universe === "arena"), [matches]);
+   196→
+   197→  const compAvgTime = compMatches.length
+   198→    ? Math.round(compMatches.reduce((s, m) => s + m.avgTimeMs, 0) / compMatches.length / 100) / 10
+   199→    : 0;
+   200→  const compAvgAcc = compMatches.length
+   201→    ? Math.round((compMatches.reduce((s, m) => s + m.accuracy, 0) / compMatches.length) * 10) / 10
+   202→    : 0;
+   203→
+   204→  const favClass = useMemo(() => {
+   205→    const counts = new Map<string, number>();
+   206→    for (const m of arenaMatches) {
+   207→      if (m.playerClass) counts.set(m.playerClass, (counts.get(m.playerClass) ?? 0) + 1);
+   208→    }
+   209→    let best: string | null = null;
+   210→    let bestN = 0;
+   211→    for (const [k, n] of counts) {
+   212→      if (n > bestN) {
+   213→        best = k;
+   214→        bestN = n;
+   215→      }
+   216→    }
+   217→    return best ?? profile.class;
+   218→  }, [arenaMatches, profile.class]);
+   219→
+   220→  const xpPct = profile.levelInfo.needed
+   221→    ? Math.round((profile.levelInfo.current / profile.levelInfo.needed) * 100)
+   222→    : 0;
+   223→
+   224→  return (
+   225→    <div className="space-y-6">
+   226→      {/* Header */}
+   227→      <ProfileHeader profile={profile} onProfileChange={onProfileChange} xpPct={xpPct} />
+   228→
+   229→      {/* Stat tiles — Compétitif */}
+   230→      <section>
+   231→        <SectionLabel className="mb-3">Statistiques · Compétitif</SectionLabel>
+   232→        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
+   233→          <StatTile label="Elo" value={<span className="font-mono">{profile.eloCompetitive}</span>} />
+   234→          <StatTile label="Parties" value={<span className="font-mono">{profile.totalMatches}</span>} />
+   235→          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{profile.wins}</span>} />
+   236→          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{profile.losses}</span>} />
+   237→          <StatTile
+   238→            label="Winrate"
+   239→            value={<span className="font-mono">{profile.winrate}%</span>}
+   240→            sub={`${profile.wins}V / ${profile.losses}D`}
+   241→          />
+   242→          <StatTile label="Vitesse moyenne" value={<span className="font-mono">{compAvgTime}s</span>} sub="par question" />
+   243→          <StatTile label="Précision" value={<span className="font-mono">{compAvgAcc}%</span>} />
+   244→        </div>
+   245→      </section>
+   246→
+   247→      {/* Stat tiles — Arène */}
+   248→      <section>
+   249→        <SectionLabel className="mb-3">Statistiques · Arène</SectionLabel>
+   250→        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
+   251→          <StatTile label="Elo arène" value={<span className="font-mono">{profile.eloArena}</span>} />
+   252→          <StatTile label="Parties" value={<span className="font-mono">{profile.totalMatchesArena}</span>} />
+   253→          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{profile.winsArena}</span>} />
+   254→          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{profile.lossesArena}</span>} />
+   255→          <StatTile
+   256→            label="Winrate"
+   257→            value={<span className="font-mono">{profile.winrateArena}%</span>}
+   258→            sub={`${profile.winsArena}V / ${profile.lossesArena}D`}
+   259→          />
+   260→          <StatTile label="Meilleur combo" value={<span className="font-mono">x{profile.bestCombo}</span>} />
+   261→          <StatTile
+   262→            label="Classe préférée"
+   263→            value={
+   264→              <span className="text-base">
+   265→                {favClass ? CLASSES[favClass as keyof typeof CLASSES]?.emoji : "—"}{" "}
+   266→                {favClass ? CLASSES[favClass as keyof typeof CLASSES]?.name : "—"}
+   267→              </span>
+   268→            }
+   269→          />
+   270→        </div>
+   271→      </section>
+   272→
+   273→      {/* Rating history */}
+   274→      <section>
+   275→        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+   276→          <SectionLabel>Historique du rating</SectionLabel>
+   277→          <Tabs<RatingUniverse>
+   278→            value={ratingUniverse}
+   279→            onChange={setRatingUniverse}
+   280→            options={[
+   281→              { value: "competitive", label: "Compétitif" },
+   282→              { value: "arena", label: "Arène" },
+   283→            ]}
+   284→          />
+   285→        </div>
+   286→        <Panel className="p-4">
+   287→          {ratingData.length === 0 ? (
+   288→            <EmptyHint text="Aucune partie pour l'instant." />
+   289→          ) : (
+   290→            <div className="h-[220px]">
+   291→              <ResponsiveContainer width="100%" height="100%">
+   292→                <LineChart data={ratingData} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+   293→                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
+   294→                  <XAxis
+   295→                    dataKey="match"
+   296→                    stroke="#6e7681"
+   297→                    tick={{ fontSize: 11, fill: "#6e7681" }}
+   298→                    tickLine={false}
+   299→                    axisLine={{ stroke: "#2d333b" }}
+   300→                  />
+   301→                  <YAxis
+   302→                    stroke="#6e7681"
+   303→                    tick={{ fontSize: 11, fill: "#6e7681" }}
+   304→                    tickLine={false}
+   305→                    axisLine={{ stroke: "#2d333b" }}
+   306→                    width={48}
+   307→                    domain={["dataMin - 20", "dataMax + 20"]}
+   308→                  />
+   309→                  <RTooltip
+   310→                    cursor={{ stroke: "#3b82f6", strokeWidth: 1 }}
+   311→                    contentStyle={{
+   312→                      background: "#161b22",
+   313→                      border: "1px solid #2d333b",
+   314→                      borderRadius: 6,
+   315→                      fontSize: 12,
+   316→                      color: "#e6edf3",
+   317→                    }}
+   318→                    labelFormatter={(l) => `Match #${l}`}
+   319→                    formatter={(v: number) => [`${v} Elo`, ""]}
+   320→                  />
+   321→                  <Line
+   322→                    type="monotone"
+   323→                    dataKey="elo"
+   324→                    stroke="#3b82f6"
+   325→                    strokeWidth={2}
+   326→                    dot={false}
+   327→                    activeDot={{ r: 3, fill: "#3b82f6" }}
+   328→                  />
+   329→                </LineChart>
+   330→              </ResponsiveContainer>
+   331→            </div>
+   332→          )}
+   333→        </Panel>
+   334→      </section>
+   335→
+   336→      {/* Recent games */}
+   337→      <section>
+   338→        <div className="flex items-center justify-between mb-3">
+   339→          <SectionLabel>Parties récentes</SectionLabel>
+   340→          <span className="text-xs text-[#6e7681]">
+   341→            {recent.length} / {matches.length}
+   342→          </span>
+   343→        </div>
+   344→        {recent.length === 0 ? (
+   345→          <Panel className="p-8 flex flex-col items-center gap-3 text-center">
+   346→            <Clock className="w-5 h-5 text-[#6e7681]" />
+   347→            <div className="text-sm text-[#9ba4b0]">Aucune partie jouée.</div>
+   348→            <Btn size="sm" onClick={() => setView("classselect")}>
+   349→              Jouer
+   350→            </Btn>
+   351→          </Panel>
+   352→        ) : (
+   353→          <Panel className="overflow-hidden">
+   354→            <RecentGamesTable rows={recent} />
+   355→          </Panel>
+   356→        )}
+   357→      </section>
+   358→    </div>
+   359→  );
+   360→}
+   361→
+   362→/* ----------------------------------------------------------------
+   363→   Profile header — name editable, dual rank, level/XP, dual elo
+   364→   ---------------------------------------------------------------- */
+   365→
+   366→function ProfileHeader({
+   367→  profile,
+   368→  onProfileChange,
+   369→  xpPct,
+   370→}: {
+   371→  profile: Profile;
+   372→  onProfileChange: (p: Profile) => void;
+   373→  xpPct: number;
+   374→}) {
+   375→  const [editing, setEditing] = useState(false);
+   376→  const [name, setName] = useState(profile.name);
+   377→  const [saving, setSaving] = useState(false);
+   378→
+   379→  useEffect(() => setName(profile.name), [profile.name]);
+   380→
+   381→  const save = async () => {
+   382→    const trimmed = name.trim();
+   383→    if (!trimmed || trimmed === profile.name) {
+   384→      setEditing(false);
+   385→      return;
+   386→    }
+   387→    setSaving(true);
+   388→    try {
+   389→      const updated = await api.patchProfile({ name: trimmed.slice(0, 24) });
+   390→      onProfileChange(updated);
+   391→      toast.success("Profil mis à jour");
+   392→    } catch (e) {
+   393→      toast.error(e instanceof Error ? e.message : "Erreur");
+   394→      setName(profile.name);
+   395→    } finally {
+   396→      setSaving(false);
+   397→      setEditing(false);
+   398→    }
+   399→  };
+   400→
+   401→  return (
+   402→    <Panel className="p-4">
+   403→      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+   404→        <div className="min-w-0 flex-1">
+   405→          {/* Name (editable) */}
+   406→          <div className="flex items-center gap-2 flex-wrap">
+   407→            {editing ? (
+   408→              <div className="flex items-center gap-2">
+   409→                <input
+   410→                  autoFocus
+   411→                  value={name}
+   412→                  maxLength={24}
+   413→                  onChange={(e) => setName(e.target.value)}
+   414→                  onKeyDown={(e) => {
+   415→                    if (e.key === "Enter") void save();
+   416→                    if (e.key === "Escape") {
+   417→                      setName(profile.name);
+   418→                      setEditing(false);
+   419→                    }
+   420→                  }}
+   421→                  className="h-8 px-2 text-lg font-semibold bg-[#0e1116] border border-[#2d333b] rounded-md text-[#e6edf3] focus:outline-none focus:border-[#3b82f6]"
+   422→                />
+   423→                <Btn size="sm" onClick={() => void save()} disabled={saving}>
+   424→                  <Save className="w-3.5 h-3.5" /> Enregistrer
+   425→                </Btn>
+   426→                <Btn
+   427→                  size="sm"
+   428→                  variant="ghost"
+   429→                  onClick={() => {
+   430→                    setName(profile.name);
+   431→                    setEditing(false);
+   432→                  }}
+   433→                >
+   434→                  <X className="w-3.5 h-3.5" />
+   435→                </Btn>
+   436→              </div>
+   437→            ) : (
+   438→              <>
+   439→                <PageTitle className="text-lg leading-tight">{profile.name}</PageTitle>
+   440→                <button
+   441→                  type="button"
+   442→                  onClick={() => setEditing(true)}
+   443→                  className="text-[#6e7681] hover:text-[#e6edf3] transition-colors"
+   444→                  aria-label="Renommer"
+   445→                >
+   446→                  <Pencil className="w-3.5 h-3.5" />
+   447→                </button>
+   448→              </>
+   449→            )}
+   450→          </div>
+   451→
+   452→          {/* Title */}
+   453→          {profile.title && (
+   454→            <div className="mt-1 text-xs italic text-[#9ba4b0]">{profile.title}</div>
+   455→          )}
+   456→
+   457→          {/* Dual ranks */}
+   458→          <div className="mt-3 flex items-center gap-4 flex-wrap">
+   459→            <div className="flex items-center gap-1.5">
+   460→              <span className="text-[10px] uppercase tracking-wider text-[#6e7681]">Compétitif</span>
+   461→              <RankBadge elo={profile.eloCompetitive} />
+   462→            </div>
+   463→            <div className="flex items-center gap-1.5">
+   464→              <span className="text-[10px] uppercase tracking-wider text-[#6e7681]">Arène</span>
+   465→              <RankBadge elo={profile.eloArena} />
+   466→            </div>
+   467→          </div>
+   468→
+   469→          {/* Dual Elo + level */}
+   470→          <div className="mt-2 flex items-center gap-4 flex-wrap text-xs text-[#9ba4b0]">
+   471→            <span className="flex items-center gap-1">
+   472→              Elo comp. <span className="font-mono text-[#e6edf3]">{profile.eloCompetitive}</span>
+   473→            </span>
+   474→            <span className="flex items-center gap-1">
+   475→              Elo arène <span className="font-mono text-[#e6edf3]">{profile.eloArena}</span>
+   476→            </span>
+   477→            <span className="flex items-center gap-1">
+   478→              Niveau <span className="font-mono text-[#e6edf3]">{profile.level}</span>
+   479→            </span>
+   480→          </div>
+   481→        </div>
+   482→
+   483→        {/* Level / XP */}
+   484→        <div className="w-full sm:w-56 shrink-0">
+   485→          <div className="flex items-center justify-between text-xs text-[#6e7681] mb-1">
+   486→            <span>XP niveau {profile.level}</span>
+   487→            <span className="font-mono">
+   488→              {profile.levelInfo.current}/{profile.levelInfo.needed}
+   489→            </span>
+   490→          </div>
+   491→          <div className="h-2 rounded-sm bg-[#1c2128] border border-[#2d333b] overflow-hidden">
+   492→            <div
+   493→              className="h-full bg-[#3b82f6] transition-[width] duration-300"
+   494→              style={{ width: `${Math.max(0, Math.min(100, xpPct))}%` }}
+   495→            />
+   496→          </div>
+   497→          <div className="mt-2 text-[11px] text-[#6e7681]">
+   498→            {profile.wins}V · {profile.losses}D en compétitif
+   499→          </div>
+   500→        </div>
+   501→      </div>
+   502→    </Panel>
+   503→  );
+   504→}
+   505→
+   506→/* ----------------------------------------------------------------
+   507→   Recent games DataTable — with universe badges
+   508→   ---------------------------------------------------------------- */
+   509→
+   510→type GameRow = Record<string, React.ReactNode>;
+   511→
+   512→function RecentGamesTable({ rows }: { rows: MatchRecord[] }) {
+   513→  const data = useMemo<GameRow[]>(
+   514→    () =>
+   515→      rows.map((m) => ({
+   516→        date: (
+   517→          <span className="text-[#9ba4b0]" title={new Date(m.createdAt).toLocaleString("fr-FR")}>
+   518→            {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
+   519→          </span>
+   520→        ),
+   521→        universe: <UniverseBadge universe={m.universe} />,
+   522→        opponent: <span className="text-[#e6edf3]">{m.opponentName}</span>,
+   523→        class: <ClassCell playerClass={m.playerClass} />,
+   524→        result: <ResultBadge result={m.result} />,
+   525→        elo: <EloChange change={m.eloChange} after={m.eloAfter} />,
+   526→        combo: <ComboCell universe={m.universe} combo={m.maxCombo} />,
+   527→        time: <span className="font-mono text-[#9ba4b0]">{Math.round(m.avgTimeMs / 100) / 10}s</span>,
+   528→        mode: <span className="text-[#9ba4b0]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
+   529→      })),
+   530→    [rows],
+   531→  );
+   532→
+   533→  return (
+   534→    <DataTable<GameRow>
+   535→      columns={[
+   536→        { key: "date", header: "Date" },
+   537→        { key: "universe", header: "Univers" },
+   538→        { key: "opponent", header: "Adversaire" },
+   539→        { key: "class", header: "Classe" },
+   540→        { key: "result", header: "Résultat" },
+   541→        { key: "elo", header: "Elo ±" },
+   542→        { key: "combo", header: "Combo" },
+   543→        { key: "time", header: "Temps" },
+   544→        { key: "mode", header: "Mode" },
+   545→      ]}
+   546→      rows={data}
+   547→      rowKey={(_, i) => String(i)}
+   548→    />
+   549→  );
+   550→}
+   551→
+   552→function UniverseBadge({ universe }: { universe: Universe }) {
+   553→  if (universe === "competitive") {
+   554→    return (
+   555→      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-[#3b82f6] border border-[#3b82f6]/40 bg-[#3b82f6]/10">
+   556→        Comp
+   557→      </span>
+   558→    );
+   559→  }
+   560→  return (
+   561→    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-[#9ba4b0] border border-[#2d333b]">
+   562→      Arène
+   563→    </span>
+   564→  );
+   565→}
+   566→
+   567→function ClassCell({ playerClass }: { playerClass: string | null }) {
+   568→  if (!playerClass) return <span className="text-[#6e7681]">—</span>;
+   569→  const cls = CLASSES[playerClass as keyof typeof CLASSES];
+   570→  return (
+   571→    <span className="text-[#9ba4b0]">
+   572→      {cls?.emoji ?? "·"} {cls?.name ?? playerClass}
+   573→    </span>
+   574→  );
+   575→}
+   576→
+   577→function ComboCell({ universe, combo }: { universe: Universe; combo: number }) {
+   578→  if (universe === "competitive") return <span className="text-[#6e7681]">—</span>;
+   579→  return <span className="font-mono text-[#9ba4b0]">x{combo}</span>;
+   580→}
+   581→
+   582→function ResultBadge({ result }: { result: "WIN" | "LOSE" }) {
+   583→  return (
+   584→    <span
+   585→      className={cn(
+   586→        "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide border",
+   587→        result === "WIN"
+   588→          ? "text-[#2ea043] border-[#2ea043]/40 bg-[#2ea043]/10"
+   589→          : "text-[#f85149] border-[#f85149]/40 bg-[#f85149]/10",
+   590→      )}
+   591→    >
+   592→      {result === "WIN" ? "Victoire" : "Défaite"}
+   593→    </span>
+   594→  );
+   595→}
+   596→
+   597→function EloChange({ change, after }: { change: number; after: number }) {
+   598→  const sign = change > 0 ? "+" : "";
+   599→  const color = change > 0 ? "text-[#2ea043]" : change < 0 ? "text-[#f85149]" : "text-[#9ba4b0]";
+   600→  return (
+   601→    <span className="font-mono text-xs">
+   602→      <span className={color}>
+   603→        {sign}
+   604→        {change}
+   605→      </span>
+   606→      <span className="text-[#6e7681] ml-1">→ {after}</span>
+   607→    </span>
+   608→  );
+   609→}
+   610→
+   611→/* ----------------------------------------------------------------
+   612→   Stats tab — BarChart winrate par mode (séparé compétitif / arène)
+   613→   ---------------------------------------------------------------- */
+   614→
+   615→function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
+   616→  const compByMode = useMemo(() => buildModeStats(matches, "competitive"), [matches]);
+   617→  const arenaByMode = useMemo(() => buildModeStats(matches, "arena"), [matches]);
+   618→
+   619→  return (
+   620→    <div className="space-y-6">
+   621→      {/* Compétitif — winrate par mode */}
+   622→      <section>
+   623→        <SectionLabel className="mb-3">Compétitif · répartition par mode</SectionLabel>
+   624→        <Panel className="p-4">
+   625→          {compByMode.length === 0 ? (
+   626→            <EmptyHint text="Aucune partie compétitive pour l'instant." />
+   627→          ) : (
+   628→            <div className="h-[240px]">
+   629→              <ResponsiveContainer width="100%" height="100%">
+   630→                <BarChart data={compByMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+   631→                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
+   632→                  <XAxis
+   633→                    dataKey="mode"
+   634→                    stroke="#6e7681"
+   635→                    tick={{ fontSize: 11, fill: "#6e7681" }}
+   636→                    tickLine={false}
+   637→                    axisLine={{ stroke: "#2d333b" }}
+   638→                  />
+   639→                  <YAxis
+   640→                    stroke="#6e7681"
+   641→                    tick={{ fontSize: 11, fill: "#6e7681" }}
+   642→                    tickLine={false}
+   643→                    axisLine={{ stroke: "#2d333b" }}
+   644→                    width={32}
+   645→                  />
+   646→                  <RTooltip
+   647→                    cursor={{ fill: "#22272e50" }}
+   648→                    contentStyle={{
+   649→                      background: "#161b22",
+   650→                      border: "1px solid #2d333b",
+   651→                      borderRadius: 6,
+   652→                      fontSize: 12,
+   653→                      color: "#e6edf3",
+   654→                    }}
+   655→                  />
+   656→                  <Legend
+   657→                    wrapperStyle={{ fontSize: 11, color: "#9ba4b0" }}
+   658→                    formatter={(v) => <span style={{ color: "#9ba4b0" }}>{v}</span>}
+   659→                  />
+   660→                  <Bar dataKey="wins" name="Victoires" stackId="a" fill="#2ea043" radius={[0, 0, 0, 0]} />
+   661→                  <Bar dataKey="losses" name="Défaites" stackId="a" fill="#f85149" radius={[2, 2, 0, 0]} />
+   662→                </BarChart>
+   663→              </ResponsiveContainer>
+   664→            </div>
+   665→          )}
+   666→        </Panel>
+   667→      </section>
+   668→
+   669→      {/* Arène — winrate par mode */}
+   670→      <section>
+   671→        <SectionLabel className="mb-3">Arène · répartition par mode</SectionLabel>
+   672→        <Panel className="p-4">
+   673→          {arenaByMode.length === 0 ? (
+   674→            <EmptyHint text="Aucune partie d'arène pour l'instant." />
+   675→          ) : (
+   676→            <div className="h-[240px]">
+   677→              <ResponsiveContainer width="100%" height="100%">
+   678→                <BarChart data={arenaByMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+   679→                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
+   680→                  <XAxis
+   681→                    dataKey="mode"
+   682→                    stroke="#6e7681"
+   683→                    tick={{ fontSize: 11, fill: "#6e7681" }}
+   684→                    tickLine={false}
+   685→                    axisLine={{ stroke: "#2d333b" }}
+   686→                  />
+   687→                  <YAxis
+   688→                    stroke="#6e7681"
+   689→                    tick={{ fontSize: 11, fill: "#6e7681" }}
+   690→                    tickLine={false}
+   691→                    axisLine={{ stroke: "#2d333b" }}
+   692→                    width={32}
+   693→                  />
+   694→                  <RTooltip
+   695→                    cursor={{ fill: "#22272e50" }}
+   696→                    contentStyle={{
+   697→                      background: "#161b22",
+   698→                      border: "1px solid #2d333b",
+   699→                      borderRadius: 6,
+   700→                      fontSize: 12,
+   701→                      color: "#e6edf3",
+   702→                    }}
+   703→                  />
+   704→                  <Legend
+   705→                    wrapperStyle={{ fontSize: 11, color: "#9ba4b0" }}
+   706→                    formatter={(v) => <span style={{ color: "#9ba4b0" }}>{v}</span>}
+   707→                  />
+   708→                  <Bar dataKey="wins" name="Victoires" stackId="a" fill="#2ea043" radius={[0, 0, 0, 0]} />
+   709→                  <Bar dataKey="losses" name="Défaites" stackId="a" fill="#f85149" radius={[2, 2, 0, 0]} />
+   710→                </BarChart>
+   711→              </ResponsiveContainer>
+   712→            </div>
+   713→          )}
+   714→        </Panel>
+   715→      </section>
+   716→
+   717→      {/* Statistiques par mode (compétitif) */}
+   718→      <section>
+   719→        <SectionLabel className="mb-3">Compétitif · statistiques par mode</SectionLabel>
+   720→        {compByMode.length === 0 ? (
+   721→          <Panel className="p-8 text-center text-sm text-[#9ba4b0]">Aucune donnée disponible.</Panel>
+   722→        ) : (
+   723→          <Panel className="overflow-hidden">
+   724→            <DataTable
+   725→              columns={[
+   726→                { key: "mode", header: "Mode" },
+   727→                { key: "total", header: "Parties" },
+   728→                { key: "wins", header: "V" },
+   729→                { key: "losses", header: "D" },
+   730→                { key: "winrate", header: "Winrate" },
+   731→                { key: "avgTime", header: "Temps moyen" },
+   732→                { key: "avgAcc", header: "Précision" },
+   733→              ]}
+   734→              rows={compByMode.map((m) => ({
+   735→                mode: <span className="text-[#e6edf3]">{m.mode}</span>,
+   736→                total: <span className="font-mono text-[#9ba4b0]">{m.total}</span>,
+   737→                wins: <span className="font-mono text-[#2ea043]">{m.wins}</span>,
+   738→                losses: <span className="font-mono text-[#f85149]">{m.losses}</span>,
+   739→                winrate: <span className="font-mono text-[#e6edf3]">{m.winrate}%</span>,
+   740→                avgTime: <span className="font-mono text-[#9ba4b0]">{m.avgTime}s</span>,
+   741→                avgAcc: <span className="font-mono text-[#9ba4b0]">{m.avgAcc}%</span>,
+   742→              }))}
+   743→              rowKey={(_, i) => String(i)}
+   744→            />
+   745→          </Panel>
+   746→        )}
+   747→      </section>
+   748→
+   749→      {/* Profil global (deux univers) */}
+   750→      <section>
+   751→        <SectionLabel className="mb-3">Profil global</SectionLabel>
+   752→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+   753→          <StatTile label="Elo compétitif" value={<span className="font-mono">{profile.eloCompetitive}</span>} />
+   754→          <StatTile label="Elo arène" value={<span className="font-mono">{profile.eloArena}</span>} />
+   755→          <StatTile label="Niveau" value={<span className="font-mono">{profile.level}</span>} />
+   756→          <StatTile label="Meilleur combo" value={<span className="font-mono">x{profile.bestCombo}</span>} />
+   757→        </div>
+   758→      </section>
+   759→    </div>
+   760→  );
+   761→}
+   762→
+   763→interface ModeStat {
+   764→  mode: string;
+   765→  wins: number;
+   766→  losses: number;
+   767→  total: number;
+   768→  winrate: number;
+   769→  avgTime: number;
+   770→  avgAcc: number;
+   771→}
+   772→
+   773→function buildModeStats(matches: MatchRecord[], universe: Universe): ModeStat[] {
+   774→  const map = new Map<string, { wins: number; losses: number; total: number; avgTime: number; avgAcc: number }>();
+   775→  for (const m of matches) {
+   776→    if (m.universe !== universe) continue;
+   777→    const cur = map.get(m.mode) ?? { wins: 0, losses: 0, total: 0, avgTime: 0, avgAcc: 0 };
+   778→    cur.total += 1;
+   779→    if (m.result === "WIN") cur.wins += 1;
+   780→    else cur.losses += 1;
+   781→    cur.avgTime += m.avgTimeMs;
+   782→    cur.avgAcc += m.accuracy;
+   783→    map.set(m.mode, cur);
+   784→  }
+   785→  return Array.from(map.entries()).map(([mode, v]) => ({
+   786→    mode: MODE_LABEL[mode] ?? mode,
+   787→    wins: v.wins,
+   788→    losses: v.losses,
+   789→    total: v.total,
+   790→    winrate: v.total ? Math.round((v.wins / v.total) * 100) : 0,
+   791→    avgTime: v.total ? Math.round(v.avgTime / v.total / 100) / 10 : 0,
+   792→    avgAcc: v.total ? Math.round((v.avgAcc / v.total) * 10) / 10 : 0,
+   793→  }));
+   794→}
+   795→
+   796→/* ----------------------------------------------------------------
+   797→   Games tab — full table with universe column
+   798→   ---------------------------------------------------------------- */
+   799→
+   800→function GamesTab({ matches }: { matches: MatchRecord[] }) {
+   801→  const data = useMemo<GameRow[]>(
+   802→    () =>
+   803→      matches.map((m) => ({
+   804→        date: (
+   805→          <span className="text-[#9ba4b0]" title={new Date(m.createdAt).toLocaleString("fr-FR")}>
+   806→            {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
+   807→          </span>
+   808→        ),
+   809→        universe: <UniverseBadge universe={m.universe} />,
+   810→        opponent: <span className="text-[#e6edf3]">{m.opponentName}</span>,
+   811→        class: <ClassCell playerClass={m.playerClass} />,
+   812→        oppClass: <ClassCell playerClass={m.opponentClass} />,
+   813→        result: <ResultBadge result={m.result} />,
+   814→        elo: <EloChange change={m.eloChange} after={m.eloAfter} />,
+   815→        combo: <ComboCell universe={m.universe} combo={m.maxCombo} />,
+   816→        time: <span className="font-mono text-[#9ba4b0]">{Math.round(m.avgTimeMs / 100) / 10}s</span>,
+   817→        acc: <span className="font-mono text-[#9ba4b0]">{m.accuracy}%</span>,
+   818→        mode: <span className="text-[#9ba4b0]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
+   819→      })),
+   820→    [matches],
+   821→  );
+   822→
+   823→  if (matches.length === 0) {
+   824→    return (
+   825→      <Panel className="p-8 text-center text-sm text-[#9ba4b0]">Aucune partie enregistrée.</Panel>
+   826→    );
+   827→  }
+   828→
+   829→  return (
+   830→    <Panel className="overflow-hidden">
+   831→      <DataTable<GameRow>
+   832→        columns={[
+   833→          { key: "date", header: "Date" },
+   834→          { key: "universe", header: "Univers" },
+   835→          { key: "opponent", header: "Adversaire" },
+   836→          { key: "class", header: "Classe" },
+   837→          { key: "oppClass", header: "Adv. classe" },
+   838→          { key: "result", header: "Résultat" },
+   839→          { key: "elo", header: "Elo ±" },
+   840→          { key: "combo", header: "Combo" },
+   841→          { key: "time", header: "Temps" },
+   842→          { key: "acc", header: "Précision" },
+   843→          { key: "mode", header: "Mode" },
+   844→        ]}
+   845→        rows={data}
+   846→        rowKey={(_, i) => String(i)}
+   847→      />
+   848→    </Panel>
+   849→  );
+   850→}
+   851→
+   852→/* ----------------------------------------------------------------
+   853→   Coming soon (achievements, settings)
+   854→   ---------------------------------------------------------------- */
+   855→
+   856→function ComingSoon() {
+   857→  return (
+   858→    <Panel className="p-10 text-center">
+   859→      <SectionLabel>Bientôt disponible</SectionLabel>
+   860→      <p className="mt-3 text-sm text-[#9ba4b0]">Cette section est en cours de développement.</p>
+   861→    </Panel>
+   862→  );
+   863→}
+   864→
+   865→function EmptyHint({ text }: { text: string }) {
+   866→  return (
+   867→    <div className="h-full min-h-[120px] flex items-center justify-center text-sm text-[#6e7681]">{text}</div>
+   868→  );
+   869→}
+   870→
+   871→/* ----------------------------------------------------------------
+   872→   Skeleton
+   873→   ---------------------------------------------------------------- */
+   874→
+   875→function ProfileSkeleton() {
+   876→  return (
+   877→    <div className="space-y-6 animate-pulse">
+   878→      <div className="h-28 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+   879→      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
+   880→        {Array.from({ length: 7 }).map((_, i) => (
+   881→          <div key={i} className="h-20 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+   882→        ))}
+   883→      </div>
+   884→      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
+   885→        {Array.from({ length: 7 }).map((_, i) => (
+   886→          <div key={i} className="h-20 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+   887→        ))}
+   888→      </div>
+   889→      <div className="h-[252px] bg-[#161b22] border border-[#2d333b] rounded-lg" />
+   890→      <div className="h-64 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+   891→    </div>
+   892→  );
+   893→}
+   894→

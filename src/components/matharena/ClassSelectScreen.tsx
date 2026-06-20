@@ -2,184 +2,155 @@
 
 import { useState } from "react";
 import { useApp } from "@/lib/store";
-import { CLASS_LIST, CLASSES } from "@/lib/game/classes";
-import type { ClassId, GameMode } from "@/lib/game/types";
 import { Btn, Panel, PageTitle, SectionLabel, RankBadge } from "./ui";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
-const MODE_TABS_COMP: { value: GameMode; label: string; desc: string }[] = [
+const COMP_MODES: { value: "RANKED" | "QUICK" | "BLITZ"; label: string; desc: string }[] = [
   { value: "RANKED", label: "Classé", desc: "Elo officiel. Difficulté adaptative." },
   { value: "QUICK", label: "Rapide", desc: "Sans enjeu. 8s par question." },
   { value: "BLITZ", label: "Blitz", desc: "3s par question. Impacte l'Elo." },
 ];
 
-const MODE_TABS_ARENA: { value: GameMode; label: string; desc: string }[] = [
-  { value: "RANKED", label: "Classé", desc: "Impacte ton Elo d'arène." },
-  { value: "QUICK", label: "Rapide", desc: "Sans enjeu. 10s par question." },
-  { value: "BLITZ", label: "Blitz", desc: "3s par question. Impacte l'Elo." },
-  { value: "PRACTICE", label: "Entraînement", desc: "Vs IA. Sans Elo." },
-];
-
-const OPPONENTS: { name: string; classId: ClassId }[] = [
-  { name: "Vortex", classId: "assassin" },
-  { name: "NeuroBlade", classId: "assassin" },
-  { name: "PyroMath", classId: "mage" },
-  { name: "CalcQueen", classId: "mage" },
-  { name: "ZeroChill", classId: "gardien" },
-  { name: "Quanta", classId: "gardien" },
-  { name: "PrimeTime", classId: "guerrier" },
-  { name: "Sigma", classId: "guerrier" },
-  { name: "Hexa", classId: "alchimiste" },
-  { name: "Omega", classId: "alchimiste" },
+const OPPONENTS = [
+  "Vortex", "NeuroBlade", "PyroMath", "CalcQueen", "ZeroChill",
+  "Quanta", "PrimeTime", "Sigma", "Hexa", "Omega",
 ];
 
 function randomOpponent(exclude?: string) {
-  const pool = exclude ? OPPONENTS.filter((o) => o.name !== exclude) : OPPONENTS;
+  const pool = exclude ? OPPONENTS.filter((o) => o !== exclude) : OPPONENTS;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-const CLASS_ICON: Record<ClassId, string> = {
-  guerrier: "⚔", mage: "✦", gardien: "⛨", assassin: "✕", alchimiste: "⚗",
+const TRAINING_INFO: Record<string, { name: string; desc: string }> = {
+  vsia: { name: "Vs IA", desc: "Adversaire IA à difficulté adaptative." },
+  sprint: { name: "Sprint solo", desc: "2 minutes de calcul mental non-stop." },
+  category: { name: "Catégorie spécifique", desc: "Travaille une catégorie de calcul." },
+  daily: { name: "Défi du jour", desc: "Challenge unique quotidien." },
 };
 
 export function ClassSelectScreen() {
   const setView = useApp((s) => s.setView);
   const setSelection = useApp((s) => s.setSelection);
   const setOpponent = useApp((s) => s.setOpponent);
-  const selectedClass = useApp((s) => s.selectedClass);
+  const setUniverse = useApp((s) => s.setUniverse);
   const selectedMode = useApp((s) => s.selectedMode);
   const universe = useApp((s) => s.universe);
+  const trainingExercise = useApp((s) => s.trainingExercise);
+  const opponentName = useApp((s) => s.opponentName);
 
-  const isArena = universe === "arena";
-  const [cls, setCls] = useState<ClassId>(selectedClass);
-  const [mode, setMode] = useState<GameMode>(selectedMode);
-  const [opp, setOpp] = useState(() => randomOpponent());
+  const isTraining = universe === "arena";
 
-  const oppDef = CLASSES[opp.classId];
-  const def = CLASSES[cls];
-  const modeTabs = isArena ? MODE_TABS_ARENA : MODE_TABS_COMP;
+  const [mode, setMode] = useState<"RANKED" | "QUICK" | "BLITZ">(
+    (selectedMode as "RANKED" | "QUICK" | "BLITZ") || "QUICK",
+  );
+  const [opp, setOpp] = useState(opponentName || randomOpponent());
 
   const launch = () => {
-    setSelection(cls, mode);
-    setOpponent(opp.classId, opp.name);
+    setSelection("guerrier", mode);
+    setOpponent("guerrier", opp);
+    setUniverse(isTraining ? "arena" : "competitive");
     setView("duel");
   };
+
+  const accentColor = isTraining ? "#f5deb3" : "#ff8c42";
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <button
         onClick={() => setView("home")}
-        className="flex items-center gap-1.5 text-sm text-[#9ba4b0] hover:text-[#e6edf3] mb-4"
+        className="flex items-center gap-1.5 text-sm text-[#8b8270] hover:text-[#f5efe6] mb-4"
       >
         <ArrowLeft className="w-4 h-4" /> Retour
       </button>
 
       <PageTitle className="mb-1">
-        {isArena ? "Duel d'arène" : "Duel compétitif"}
+        {isTraining ? "Entraînement" : "Duel compétitif"}
       </PageTitle>
-      <p className="text-sm text-[#9ba4b0] mb-6">
-        {isArena
-          ? "Choisis ta classe, ton mode et ton adversaire."
-          : "Choisis ton mode et ton adversaire. Pur skill."}
+      <p className="text-sm text-[#c9bfb0] mb-6">
+        {isTraining
+          ? TRAINING_INFO[trainingExercise]?.desc ?? "Exercice d'entraînement."
+          : "Configure ton match et lance le duel. Pur skill."}
       </p>
 
       <div className="space-y-5">
-        {/* Mode */}
-        <Panel className="p-4">
-          <SectionLabel className="mb-3 block">Mode</SectionLabel>
-          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#1c2128] border border-[#2d333b]">
-            {modeTabs.map((m) => (
-              <button
-                key={m.value}
-                onClick={() => setMode(m.value)}
-                className={cn(
-                  "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                  mode === m.value ? "bg-[#3b82f6] text-white" : "text-[#9ba4b0] hover:text-[#e6edf3] hover:bg-[#22272e]",
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-[#6e7681] mt-2">
-            {modeTabs.find((m) => m.value === mode)?.desc}
-          </p>
-        </Panel>
-
-        {/* Classe — arène uniquement */}
-        {isArena && (
+        {/* Entraînement : exercice sélectionné */}
+        {isTraining && (
           <Panel className="p-4">
-            <SectionLabel className="mb-3 block">Classe</SectionLabel>
-            <div className="grid grid-cols-5 gap-2">
-              {CLASS_LIST.map((c) => {
-                const active = c.id === cls;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setCls(c.id)}
-                    className={cn(
-                      "flex flex-col items-center gap-1 p-3 rounded-md border transition-colors",
-                      active
-                        ? "border-[#3b82f6] bg-[rgba(59,130,246,0.08)]"
-                        : "border-[#2d333b] hover:border-[#444c56] hover:bg-[#1c2128]",
-                    )}
-                  >
-                    <span className="text-xl leading-none text-[#e6edf3]">{CLASS_ICON[c.id]}</span>
-                    <span className={cn("text-xs font-medium", active ? "text-[#3b82f6]" : "text-[#e6edf3]")}>{c.name}</span>
-                    <span className="text-[10px] font-mono text-[#6e7681]">{c.hp} PV</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-3 pt-3 border-t border-[#232a33] grid sm:grid-cols-3 gap-3 text-xs">
+            <SectionLabel className="mb-2 block">Exercice</SectionLabel>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {trainingExercise === "vsia" ? "🤖" : trainingExercise === "sprint" ? "⚡" : trainingExercise === "category" ? "🎯" : "🧩"}
+              </span>
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Passif</div>
-                <div className="text-[#e6edf3] font-medium">{def.passive.name}</div>
-                <div className="text-[#9ba4b0] mt-0.5 leading-snug">{def.passive.description}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Ultime</div>
-                <div className="text-[#e6edf3] font-medium">{def.ultimate.name}</div>
-                <div className="text-[#9ba4b0] mt-0.5 leading-snug">{def.ultimate.description}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Faiblesse</div>
-                <div className="text-[#9ba4b0] leading-snug">{def.weakness}</div>
+                <div className="text-sm font-semibold text-[#f5deb3]">
+                  {TRAINING_INFO[trainingExercise]?.name}
+                </div>
+                <div className="text-xs text-[#8b8270]">{TRAINING_INFO[trainingExercise]?.desc}</div>
               </div>
             </div>
           </Panel>
         )}
 
-        {/* Adversaire */}
-        <Panel className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <SectionLabel>Adversaire</SectionLabel>
-            <button
-              onClick={() => setOpp(randomOpponent(opp.name))}
-              className="flex items-center gap-1.5 text-xs text-[#9ba4b0] hover:text-[#3b82f6]"
-            >
-              <RefreshCw className="w-3 h-3" /> Changer
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl text-[#e6edf3]">
-              {isArena ? CLASS_ICON[opp.classId] : "·"}
-            </span>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-[#e6edf3]">{opp.name}</div>
-              <div className="text-xs text-[#9ba4b0]">
-                {isArena ? `${oppDef.name} · ${oppDef.hp} PV · ${oppDef.passive.name}` : "Adversaire pairé à ton Elo"}
-              </div>
+        {/* Mode (compétitif uniquement) */}
+        {!isTraining && (
+          <Panel className="p-4">
+            <SectionLabel className="mb-3 block">Mode</SectionLabel>
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#252019] border border-[#4a4133]">
+              {COMP_MODES.map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => setMode(m.value)}
+                  className={cn(
+                    "px-3 py-1.5 rounded text-sm font-medium transition-colors",
+                    mode === m.value ? "bg-[#ff8c42] text-[#14110f]" : "text-[#8b8270] hover:text-[#f5efe6] hover:bg-[#2e2820]",
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
             </div>
-            <RankBadge elo={1000} />
-          </div>
-        </Panel>
+            <p className="text-xs text-[#8b8270] mt-2">
+              {COMP_MODES.find((m) => m.value === mode)?.desc}
+            </p>
+          </Panel>
+        )}
+
+        {/* Adversaire (compétitif + Vs IA) */}
+        {(!isTraining || trainingExercise === "vsia") && (
+          <Panel className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <SectionLabel>Adversaire</SectionLabel>
+              <button
+                onClick={() => setOpp(randomOpponent(opp))}
+                className="flex items-center gap-1.5 text-xs text-[#8b8270] hover:text-[#ff8c42]"
+              >
+                <RefreshCw className="w-3 h-3" /> Changer
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="grid place-items-center w-9 h-9 rounded-md bg-[#252019] border border-[#4a4133] text-sm font-semibold text-[#f5efe6]">
+                {opp.charAt(0)}
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium text-[#f5efe6]">{opp}</div>
+                <div className="text-xs text-[#8b8270]">
+                  {isTraining ? "IA adaptative" : "Adversaire pairé à ton Elo"}
+                </div>
+              </div>
+              <RankBadge elo={1000} />
+            </div>
+          </Panel>
+        )}
 
         {/* CTA */}
         <div className="flex justify-end">
-          <Btn onClick={launch} size="lg">
-            Lancer le duel
+          <Btn
+            variant={isTraining ? "training" : "primary"}
+            onClick={launch}
+            size="lg"
+          >
+            {isTraining ? "🎯 Commencer" : "Lancer le duel"}
           </Btn>
         </div>
       </div>

@@ -2,8 +2,7 @@
 
 import { useApp, type View } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { Btn } from "./ui";
-import { Trophy, User, Swords, Home as HomeIcon } from "lucide-react";
+import { Trophy, User, Swords, Home as HomeIcon, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 const LINKS: { view: View; label: string; icon: React.ReactNode }[] = [
@@ -11,6 +10,7 @@ const LINKS: { view: View; label: string; icon: React.ReactNode }[] = [
   { view: "classselect", label: "Jouer", icon: <Swords className="w-4 h-4" /> },
   { view: "leaderboard", label: "Classement", icon: <Trophy className="w-4 h-4" /> },
   { view: "profile", label: "Profil", icon: <User className="w-4 h-4" /> },
+  { view: "rules", label: "Règles", icon: <BookOpen className="w-4 h-4" /> },
 ];
 
 export function Navbar() {
@@ -18,14 +18,14 @@ export function Navbar() {
   const setView = useApp((s) => s.setView);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#2d333b] bg-[#0e1116]">
-      <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between gap-3">
+    <header className="sticky top-0 z-40 border-b border-[#3a3328] bg-[#14110f]">
+      <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between gap-3">
         <button onClick={() => setView("home")} className="flex items-center gap-2 group shrink-0">
-          <span className="grid place-items-center w-7 h-7 rounded-md bg-[#3b82f6] text-white font-bold text-sm">
+          <span className="grid place-items-center w-7 h-7 rounded-md bg-[#ff8c42] text-[#14110f] font-bold text-sm">
             M
           </span>
           <span className="font-semibold text-sm tracking-tight">
-            Math<span className="text-[#3b82f6]">Arena</span>
+            Math<span className="text-[#ff8c42]">Arena</span>
           </span>
         </button>
 
@@ -37,8 +37,8 @@ export function Navbar() {
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors",
                 view === l.view
-                  ? "bg-[#1c2128] text-[#e6edf3]"
-                  : "text-[#9ba4b0] hover:text-[#e6edf3] hover:bg-[#1c2128]",
+                  ? "bg-[#252019] text-[#f5efe6]"
+                  : "text-[#8b8270] hover:text-[#f5efe6] hover:bg-[#252019]",
               )}
             >
               {l.icon}
@@ -47,14 +47,12 @@ export function Navbar() {
           ))}
         </nav>
 
-        <Btn
-          variant="secondary"
-          size="sm"
-          className="shrink-0 hidden md:inline-flex"
+        <button
           onClick={() => toast("Connexion bientôt disponible", { description: "Auth Google/Discord : prochaine phase." })}
+          className="shrink-0 hidden md:inline-flex items-center h-8 px-3 rounded-md border border-[#4a4133] text-[#c9bfb0] hover:bg-[#2e2820] hover:text-[#f5efe6] text-sm transition-colors"
         >
           Connexion
-        </Btn>
+        </button>
       </div>
     </header>
   );

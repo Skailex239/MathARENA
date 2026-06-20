@@ -14,13 +14,13 @@ export type View =
 export interface MatchResultPayload {
   universe: Universe;
   result: "WIN" | "LOSE";
-  playerClass: ClassId | null;   // arène uniquement
-  opponentClass: ClassId | null; // arène uniquement
+  playerClass: ClassId | null;
+  opponentClass: ClassId | null;
   opponentName: string;
   /** arène: PV restants ; compétitif: score du joueur */
   playerHP: number;
   opponentHP: number;
-  maxCombo: number;              // arène uniquement
+  maxCombo: number;
   avgTimeMs: number;
   accuracy: number;
   mode: GameMode;
@@ -35,16 +35,20 @@ export interface MatchResultPayload {
 
 interface AppState {
   view: View;
+  /** "competitive" | "arena" côté backend ; "arena" = Entraînement côté UI */
   universe: Universe;
-  selectedClass: ClassId;        // arène
+  selectedClass: ClassId;
   selectedMode: GameMode;
-  opponentClass: ClassId;        // arène
+  opponentClass: ClassId;
   opponentName: string;
+  /** exercise d'entraînement sélectionné */
+  trainingExercise: "vsia" | "sprint" | "category" | "daily";
   lastResult: MatchResultPayload | null;
   setView: (v: View) => void;
   setUniverse: (u: Universe) => void;
   setSelection: (c: ClassId, m: GameMode) => void;
   setOpponent: (c: ClassId, name: string) => void;
+  setTrainingExercise: (e: "vsia" | "sprint" | "category" | "daily") => void;
   setLastResult: (r: MatchResultPayload | null) => void;
 }
 
@@ -55,10 +59,12 @@ export const useApp = create<AppState>((set) => ({
   selectedMode: "QUICK",
   opponentClass: "mage",
   opponentName: "Vortex",
+  trainingExercise: "sprint",
   lastResult: null,
   setView: (view) => set({ view }),
   setUniverse: (universe) => set({ universe }),
   setSelection: (selectedClass, selectedMode) => set({ selectedClass, selectedMode }),
   setOpponent: (opponentClass, opponentName) => set({ opponentClass, opponentName }),
+  setTrainingExercise: (trainingExercise) => set({ trainingExercise }),
   setLastResult: (lastResult) => set({ lastResult }),
 }));

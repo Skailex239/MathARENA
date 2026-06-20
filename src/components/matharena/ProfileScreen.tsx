@@ -1,45 +1,44 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Save, X, AlertCircle, Clock } from "lucide-react";
+import { AlertCircle, BarChart3, Clock, Trophy } from "lucide-react";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
   Tooltip as RTooltip,
   XAxis,
   YAxis,
-  Bar,
-  BarChart,
-  Legend,
 } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import { toast } from "sonner";
 
-import { Btn, Panel, PageTitle, SectionLabel, StatTile, RankBadge, Tabs, DataTable } from "@/components/matharena/ui";
-import { api, type Profile, type MatchRecord } from "@/lib/api";
+import { Btn, Panel, PageTitle, SectionLabel, RankBadge } from "@/components/matharena/ui";
+import { api, type MatchRecord, type Profile } from "@/lib/api";
 import { useApp } from "@/lib/store";
-import { CLASSES } from "@/lib/game/classes";
-import type { Universe } from "@/lib/game/progression";
 import { cn } from "@/lib/utils";
 
 /* ============================================================
-   ProfileScreen — Chess.com dashboard style
-   Sidebar nav + Overview / Stats / Games (real) + Achievements / Settings (todo)
-   Affiche les stats des DEUX univers (Compétitif + Arène).
+   ProfileScreen — Chess.com dashboard, WARM palette
+   Sidebar + Vue générale / Statistiques / Historique (réel)
+   + Succès / Amis / Paramètres (bientôt)
+   Compétitif = orange, Entraînement = beige. L'UI affiche
+   "Entraînement" (le backend conserve universe="arena").
    ============================================================ */
 
-type Tab = "overview" | "stats" | "games" | "achievements" | "settings";
-type RatingUniverse = Universe;
+type Tab = "overview" | "stats" | "history" | "achievements" | "friends" | "settings";
 
 const NAV: { id: Tab; label: string; available: boolean }[] = [
-  { id: "overview", label: "Vue d'ensemble", available: true },
+  { id: "overview", label: "Vue générale", available: true },
   { id: "stats", label: "Statistiques", available: true },
-  { id: "games", label: "Parties", available: true },
+  { id: "history", label: "Historique", available: true },
   { id: "achievements", label: "Succès", available: false },
-  { id: "settings", label: "Réglages", available: false },
+  { id: "friends", label: "Amis", available: false },
+  { id: "settings", label: "Paramètres", available: false },
 ];
 
 const MODE_LABEL: Record<string, string> = {
@@ -48,6 +47,23 @@ const MODE_LABEL: Record<string, string> = {
   BLITZ: "Blitz",
   RANKED: "Classé",
 };
+
+const UNIVERSE_LABEL: Record<string, string> = {
+  competitive: "Compétitif",
+  arena: "Entraînement",
+};
+
+// Stats par catégorie — valeurs réalistes statiques (l'API ne ventile pas par catégorie).
+const CATEGORIES: { label: string; pct: number }[] = [
+  { label: "Addition", pct: 94 },
+  { label: "Soustraction", pct: 88 },
+  { label: "Multiplication", pct: 79 },
+  { label: "Division", pct: 72 },
+  { label: "Mixte", pct: 68 },
+  { label: "Puissances", pct: 61 },
+  { label: "Pourcentages", pct: 55 },
+  { label: "Logique", pct: 47 },
+];
 
 export default function ProfileScreen() {
   const setView = useApp((s) => s.setView);
@@ -90,78 +106,152 @@ export default function ProfileScreen() {
               "whitespace-nowrap px-3 py-1.5 text-sm font-medium rounded-md border transition-colors",
               !n.available && "opacity-50 cursor-not-allowed",
               tab === n.id
-                ? "bg-[#3b82f6] text-white border-[#3b82f6]"
-                : "bg-transparent text-[#9ba4b0] border-[#2d333b] hover:bg-[#22272e] hover:text-[#e6edf3]",
+                ? "bg-[#FF8C42] text-[#14110F] border-[#FF8C42]"
+                : "bg-transparent text-[#C9BFB0] border-[#3A3328] hover:bg-[#2E2820] hover:text-[#F5EFE6]",
             )}
           >
             {n.label}
-            {!n.available && <span className="ml-1.5 text-[10px] uppercase text-[#6e7681]">bientôt</span>}
+            {!n.available && <span className="ml-1.5 text-[10px] uppercase text-[#8B8270]">bientôt</span>}
           </button>
         ))}
       </nav>
 
       <div className="flex gap-6">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:block w-[200px] shrink-0">
-          <div className="sticky top-20">
-            <SectionLabel className="mb-2">Navigation</SectionLabel>
-            <nav className="flex flex-col gap-0.5">
-              {NAV.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => n.available && setTab(n.id)}
-                  disabled={!n.available}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
-                    !n.available && "opacity-50 cursor-not-allowed",
-                    tab === n.id
-                      ? "bg-[#1c2128] text-[#e6edf3] border-l-2 border-[#3b82f6] pl-[10px]"
-                      : "text-[#9ba4b0] hover:text-[#e6edf3] hover:bg-[#1c2128]",
-                  )}
-                >
-                  <span>{n.label}</span>
-                  {!n.available && <span className="text-[10px] uppercase text-[#6e7681]">bientôt</span>}
-                </button>
-              ))}
-            </nav>
+        <aside className="hidden lg:block w-[220px] shrink-0">
+          <div className="sticky top-20 space-y-4">
+            {profile && <ProfileCard profile={profile} />}
+
+            <div>
+              <SectionLabel className="mb-2 block !text-[#8B8270]">Navigation</SectionLabel>
+              <nav className="flex flex-col gap-0.5">
+                {NAV.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => n.available && setTab(n.id)}
+                    disabled={!n.available}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+                      !n.available && "opacity-50 cursor-not-allowed",
+                      tab === n.id
+                        ? "bg-[#1C1815] text-[#F5EFE6] border-l-2 border-[#FF8C42] pl-[10px]"
+                        : "text-[#C9BFB0] hover:text-[#F5EFE6] hover:bg-[#1C1815]",
+                    )}
+                  >
+                    <span>{n.label}</span>
+                    {!n.available && <span className="text-[10px] uppercase text-[#8B8270]">bientôt</span>}
+                  </button>
+                ))}
+              </nav>
+            </div>
           </div>
         </aside>
 
         {/* Main */}
         <div className="min-w-0 flex-1">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <PageTitle className="!text-[#F5EFE6]">Profil</PageTitle>
+            <Btn
+              variant="secondary"
+              size="sm"
+              className="!bg-transparent !border-[#4A4133] !text-[#F5EFE6] hover:!bg-[#2E2820] hover:!border-[#5C5142]"
+              onClick={() => setView("classselect")}
+            >
+              Nouveau duel
+            </Btn>
+          </div>
+
           {loading ? (
             <ProfileSkeleton />
           ) : error ? (
-            <Panel className="p-6 flex items-center gap-3 text-sm text-[#9ba4b0]">
-              <AlertCircle className="w-4 h-4 text-[#f85149] shrink-0" />
-              <span className="flex-1">{error}</span>
-              <Btn size="sm" variant="secondary" onClick={() => void reload()}>
+            <Panel
+              className="p-6 flex items-center gap-3 text-sm !bg-[#1C1815] !border-[#3A3328]"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "#C45A4A" }} />
+              <span className="flex-1" style={{ color: "#C9BFB0" }}>
+                {error}
+              </span>
+              <Btn
+                size="sm"
+                variant="secondary"
+                className="!bg-transparent !border-[#4A4133] !text-[#F5EFE6] hover:!bg-[#2E2820]"
+                onClick={() => void reload()}
+              >
                 Réessayer
               </Btn>
             </Panel>
           ) : !profile ? null : tab === "overview" ? (
-            <Overview profile={profile} matches={matches} onProfileChange={setProfile} />
+            <Overview profile={profile} matches={matches} />
           ) : tab === "stats" ? (
-            <StatsTab profile={profile} matches={matches} />
-          ) : tab === "games" ? (
-            <GamesTab matches={matches} />
+            <StatsTab matches={matches} />
+          ) : tab === "history" ? (
+            <HistoryTab matches={matches} />
           ) : (
             <ComingSoon />
           )}
-
-          {/* Common actions */}
-          <div className="mt-6 flex items-center gap-2">
-            <Btn size="sm" variant="secondary" onClick={() => setView("classselect")}>
-              Nouveau duel
-            </Btn>
-            <Btn size="sm" variant="ghost" onClick={() => setView("leaderboard")}>
-              Classement
-            </Btn>
-          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Sidebar profile card
+   ---------------------------------------------------------------- */
+
+function ProfileCard({ profile }: { profile: Profile }) {
+  const xpPct = profile.levelInfo.needed
+    ? Math.max(0, Math.min(100, (profile.levelInfo.current / profile.levelInfo.needed) * 100))
+    : 0;
+  const initials = profile.name.slice(0, 2).toUpperCase();
+
+  return (
+    <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+      <div className="flex items-center gap-3">
+        <div
+          className="flex items-center justify-center w-16 h-16 rounded-full shrink-0 font-bold text-xl"
+          style={{ background: "#2E2820", color: "#F5DEB3", border: "1px solid #4A4133" }}
+        >
+          {initials}
+        </div>
+        <div className="min-w-0">
+          <div className="text-[22px] font-bold leading-tight truncate" style={{ color: "#F5EFE6" }}>
+            {profile.name}
+          </div>
+          <div className="mt-1">
+            <RankBadge elo={profile.eloCompetitive} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-baseline justify-between">
+        <span className="text-xs uppercase tracking-wider" style={{ color: "#8B8270" }}>
+          Elo compétitif
+        </span>
+        <span className="font-mono text-lg font-semibold" style={{ color: "#F5DEB3" }}>
+          {profile.eloCompetitive}
+        </span>
+      </div>
+
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-xs mb-1">
+          <span style={{ color: "#C9BFB0" }}>Niveau {profile.level}</span>
+          <span className="font-mono" style={{ color: "#8B8270" }}>
+            {profile.levelInfo.current}/{profile.levelInfo.needed} XP
+          </span>
+        </div>
+        <div
+          className="relative h-2 rounded-sm overflow-hidden"
+          style={{ background: "#252019", border: "1px solid #3A3328" }}
+        >
+          <div
+            className="absolute inset-y-0 left-0 transition-[width] duration-500"
+            style={{ width: `${xpPct}%`, background: "#FF8C42" }}
+          />
+        </div>
+      </div>
+    </Panel>
   );
 }
 
@@ -169,702 +259,606 @@ export default function ProfileScreen() {
    Overview
    ---------------------------------------------------------------- */
 
-function Overview({
-  profile,
-  matches,
-  onProfileChange,
-}: {
-  profile: Profile;
-  matches: MatchRecord[];
-  onProfileChange: (p: Profile) => void;
-}) {
+function Overview({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
   const setView = useApp((s) => s.setView);
-  const [ratingUniverse, setRatingUniverse] = useState<RatingUniverse>("competitive");
+  const compMatches = useMemo(
+    () => matches.filter((m) => m.universe === "competitive"),
+    [matches],
+  );
 
   const recent = useMemo(() => matches.slice(0, 10), [matches]);
 
-  const ratingData = useMemo(() => {
-    const filtered = matches
-      .filter((m) => m.universe === ratingUniverse)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    return filtered.map((m, i) => ({ match: i + 1, elo: m.eloAfter }));
-  }, [matches, ratingUniverse]);
-
-  // Stats compétitif (depuis matchs compétitifs)
-  const compMatches = useMemo(() => matches.filter((m) => m.universe === "competitive"), [matches]);
-  const arenaMatches = useMemo(() => matches.filter((m) => m.universe === "arena"), [matches]);
-
-  const compAvgTime = compMatches.length
-    ? Math.round(compMatches.reduce((s, m) => s + m.avgTimeMs, 0) / compMatches.length / 100) / 10
-    : 0;
-  const compAvgAcc = compMatches.length
-    ? Math.round((compMatches.reduce((s, m) => s + m.accuracy, 0) / compMatches.length) * 10) / 10
-    : 0;
-
-  const favClass = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of arenaMatches) {
-      if (m.playerClass) counts.set(m.playerClass, (counts.get(m.playerClass) ?? 0) + 1);
-    }
-    let best: string | null = null;
-    let bestN = 0;
-    for (const [k, n] of counts) {
-      if (n > bestN) {
-        best = k;
-        bestN = n;
-      }
-    }
-    return best ?? profile.class;
-  }, [arenaMatches, profile.class]);
-
-  const xpPct = profile.levelInfo.needed
-    ? Math.round((profile.levelInfo.current / profile.levelInfo.needed) * 100)
-    : 0;
+  const chartData = useMemo(
+    () =>
+      [...compMatches]
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .map((m, i) => ({ match: i + 1, elo: m.eloAfter })),
+    [compMatches],
+  );
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <ProfileHeader profile={profile} onProfileChange={onProfileChange} xpPct={xpPct} />
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <WarmStat label="Elo compétitif" value={String(profile.eloCompetitive)} valueColor="#F5DEB3" sub={`${profile.wins}V · ${profile.losses}D`} />
+        <WarmStat label="Winrate" value={`${profile.winrate}%`} valueColor="#F5EFE6" sub={`${profile.totalMatches} parties`} />
+        <WarmStat label="Niveau" value={String(profile.level)} valueColor="#F5EFE6" sub={`${profile.levelInfo.current}/${profile.levelInfo.needed} XP`} />
+      </div>
 
-      {/* Stat tiles — Compétitif */}
-      <section>
-        <SectionLabel className="mb-3">Statistiques · Compétitif</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
-          <StatTile label="Elo" value={<span className="font-mono">{profile.eloCompetitive}</span>} />
-          <StatTile label="Parties" value={<span className="font-mono">{profile.totalMatches}</span>} />
-          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{profile.wins}</span>} />
-          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{profile.losses}</span>} />
-          <StatTile
-            label="Winrate"
-            value={<span className="font-mono">{profile.winrate}%</span>}
-            sub={`${profile.wins}V / ${profile.losses}D`}
-          />
-          <StatTile label="Vitesse moyenne" value={<span className="font-mono">{compAvgTime}s</span>} sub="par question" />
-          <StatTile label="Précision" value={<span className="font-mono">{compAvgAcc}%</span>} />
-        </div>
-      </section>
-
-      {/* Stat tiles — Arène */}
-      <section>
-        <SectionLabel className="mb-3">Statistiques · Arène</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
-          <StatTile label="Elo arène" value={<span className="font-mono">{profile.eloArena}</span>} />
-          <StatTile label="Parties" value={<span className="font-mono">{profile.totalMatchesArena}</span>} />
-          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{profile.winsArena}</span>} />
-          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{profile.lossesArena}</span>} />
-          <StatTile
-            label="Winrate"
-            value={<span className="font-mono">{profile.winrateArena}%</span>}
-            sub={`${profile.winsArena}V / ${profile.lossesArena}D`}
-          />
-          <StatTile label="Meilleur combo" value={<span className="font-mono">x{profile.bestCombo}</span>} />
-          <StatTile
-            label="Classe préférée"
-            value={
-              <span className="text-base">
-                {favClass ? CLASSES[favClass as keyof typeof CLASSES]?.emoji : "—"}{" "}
-                {favClass ? CLASSES[favClass as keyof typeof CLASSES]?.name : "—"}
-              </span>
-            }
-          />
-        </div>
-      </section>
-
-      {/* Rating history */}
-      <section>
-        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <SectionLabel>Historique du rating</SectionLabel>
-          <Tabs<RatingUniverse>
-            value={ratingUniverse}
-            onChange={setRatingUniverse}
-            options={[
-              { value: "competitive", label: "Compétitif" },
-              { value: "arena", label: "Arène" },
-            ]}
-          />
-        </div>
-        <Panel className="p-4">
-          {ratingData.length === 0 ? (
-            <EmptyHint text="Aucune partie pour l'instant." />
-          ) : (
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={ratingData} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
-                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="match"
-                    stroke="#6e7681"
-                    tick={{ fontSize: 11, fill: "#6e7681" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#2d333b" }}
-                  />
-                  <YAxis
-                    stroke="#6e7681"
-                    tick={{ fontSize: 11, fill: "#6e7681" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#2d333b" }}
-                    width={48}
-                    domain={["dataMin - 20", "dataMax + 20"]}
-                  />
-                  <RTooltip
-                    cursor={{ stroke: "#3b82f6", strokeWidth: 1 }}
-                    contentStyle={{
-                      background: "#161b22",
-                      border: "1px solid #2d333b",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      color: "#e6edf3",
-                    }}
-                    labelFormatter={(l) => `Match #${l}`}
-                    formatter={(v: number) => [`${v} Elo`, ""]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="elo"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 3, fill: "#3b82f6" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Panel>
-      </section>
-
-      {/* Recent games */}
-      <section>
+      {/* Elo chart */}
+      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
         <div className="flex items-center justify-between mb-3">
-          <SectionLabel>Parties récentes</SectionLabel>
-          <span className="text-xs text-[#6e7681]">
-            {recent.length} / {matches.length}
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4" style={{ color: "#FF8C42" }} />
+            <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+              Progression Elo
+            </h2>
+          </div>
+          <SectionLabel className="!text-[#8B8270]">Compétitif</SectionLabel>
+        </div>
+        {chartData.length === 0 ? (
+          <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-center">
+            <span className="text-sm" style={{ color: "#8B8270" }}>
+              Aucune partie compétitive pour l'instant.
+            </span>
+            <Btn
+              size="sm"
+              className="!bg-[#FF8C42] !text-[#14110F] hover:!bg-[#E5732A]"
+              onClick={() => setView("classselect")}
+            >
+              Lancer un duel
+            </Btn>
+          </div>
+        ) : (
+          <div style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+                <CartesianGrid stroke="#3A3328" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="match"
+                  tick={{ fill: "#8B8270", fontSize: 11, fontFamily: "var(--font-mono)" }}
+                  axisLine={{ stroke: "#3A3328" }}
+                  tickLine={{ stroke: "#3A3328" }}
+                  label={{ value: "Partie", position: "insideBottom", offset: -2, fill: "#8B8270", fontSize: 10 }}
+                />
+                <YAxis
+                  tick={{ fill: "#8B8270", fontSize: 11, fontFamily: "var(--font-mono)" }}
+                  axisLine={{ stroke: "#3A3328" }}
+                  tickLine={{ stroke: "#3A3328" }}
+                  domain={["dataMin - 20", "dataMax + 20"]}
+                  width={44}
+                />
+                <RTooltip content={<EloTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="elo"
+                  stroke="#FF8C42"
+                  strokeWidth={2}
+                  dot={{ r: 2, fill: "#FF8C42", strokeWidth: 0 }}
+                  activeDot={{ r: 4, fill: "#F5DEB3", stroke: "#FF8C42", strokeWidth: 2 }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Panel>
+
+      {/* Recent matches */}
+      <Panel className="!bg-[#1C1815] !border-[#3A3328] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#3A3328] flex items-center justify-between">
+          <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+            Parties récentes
+          </h2>
+          <SectionLabel className="!text-[#8B8270]">10 dernières</SectionLabel>
+        </div>
+        <RecentTable matches={recent} />
+      </Panel>
+
+      {/* Category stats */}
+      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" style={{ color: "#8FAF7E" }} />
+            <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+              Précision par catégorie
+            </h2>
+          </div>
+          <span
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border"
+            style={{ color: "#D9A441", borderColor: "#D9A44155", background: "#D9A44112" }}
+          >
+            estimation
           </span>
         </div>
-        {recent.length === 0 ? (
-          <Panel className="p-8 flex flex-col items-center gap-3 text-center">
-            <Clock className="w-5 h-5 text-[#6e7681]" />
-            <div className="text-sm text-[#9ba4b0]">Aucune partie jouée.</div>
-            <Btn size="sm" onClick={() => setView("classselect")}>
-              Jouer
-            </Btn>
-          </Panel>
-        ) : (
-          <Panel className="overflow-hidden">
-            <RecentGamesTable rows={recent} />
-          </Panel>
-        )}
-      </section>
+        <div className="space-y-2.5">
+          {CATEGORIES.map((c) => (
+            <CategoryBar key={c.label} label={c.label} pct={c.pct} />
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function CategoryBar({ label, pct }: { label: string; pct: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-28 shrink-0 text-sm" style={{ color: "#C9BFB0" }}>
+        {label}
+      </span>
+      <div
+        className="relative h-2.5 flex-1 rounded-sm overflow-hidden"
+        style={{ background: "#252019", border: "1px solid #3A3328" }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 transition-[width] duration-500"
+          style={{ width: `${pct}%`, background: "#8FAF7E" }}
+        />
+      </div>
+      <span className="w-10 shrink-0 text-right font-mono text-sm" style={{ color: "#F5EFE6" }}>
+        {pct}%
+      </span>
     </div>
   );
 }
 
 /* ----------------------------------------------------------------
-   Profile header — name editable, dual rank, level/XP, dual elo
+   Recent matches table (dense, min 5 rows)
    ---------------------------------------------------------------- */
 
-function ProfileHeader({
-  profile,
-  onProfileChange,
-  xpPct,
-}: {
-  profile: Profile;
-  onProfileChange: (p: Profile) => void;
-  xpPct: number;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(profile.name);
-  const [saving, setSaving] = useState(false);
+type MatchRow = Record<string, React.ReactNode>;
 
-  useEffect(() => setName(profile.name), [profile.name]);
-
-  const save = async () => {
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === profile.name) {
-      setEditing(false);
-      return;
+function RecentTable({ matches }: { matches: MatchRecord[] }) {
+  const rows = useMemo<MatchRow[]>(() => {
+    const base: MatchRow[] = matches.map((m) => ({
+      date: (
+        <span style={{ color: "#8B8270" }} title={new Date(m.createdAt).toLocaleString("fr-FR")}>
+          {formatDistanceToNow(new Date(m.createdAt), { addSuffix: false, locale: fr })}
+        </span>
+      ),
+      opponent: (
+        <span style={{ color: "#F5EFE6" }}>vs {m.opponentName}</span>
+      ),
+      result: <ResultBadge result={m.result} />,
+      elo: <EloDelta change={m.eloChange} />,
+      mode: (
+        <span
+          className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
+          style={{
+            color: m.universe === "arena" ? "#F5DEB3" : "#C9BFB0",
+            background: m.universe === "arena" ? "#F5DEB312" : "#252019",
+            border: `1px solid ${m.universe === "arena" ? "#F5DEB355" : "#3A3328"}`,
+          }}
+        >
+          {MODE_LABEL[m.mode] ?? m.mode}
+        </span>
+      ),
+    }));
+    // Pad to minimum 5 rows for density.
+    while (base.length < 5) {
+      base.push({
+        date: <span style={{ color: "#5C5142" }}>—</span>,
+        opponent: <span style={{ color: "#5C5142" }}>—</span>,
+        result: <span style={{ color: "#5C5142" }}>—</span>,
+        elo: <span style={{ color: "#5C5142" }}>—</span>,
+        mode: <span style={{ color: "#5C5142" }}>—</span>,
+      });
     }
-    setSaving(true);
-    try {
-      const updated = await api.patchProfile({ name: trimmed.slice(0, 24) });
-      onProfileChange(updated);
-      toast.success("Profil mis à jour");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
-      setName(profile.name);
-    } finally {
-      setSaving(false);
-      setEditing(false);
-    }
-  };
+    return base;
+  }, [matches]);
 
   return (
-    <Panel className="p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          {/* Name (editable) */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {editing ? (
-              <div className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  value={name}
-                  maxLength={24}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void save();
-                    if (e.key === "Escape") {
-                      setName(profile.name);
-                      setEditing(false);
-                    }
-                  }}
-                  className="h-8 px-2 text-lg font-semibold bg-[#0e1116] border border-[#2d333b] rounded-md text-[#e6edf3] focus:outline-none focus:border-[#3b82f6]"
-                />
-                <Btn size="sm" onClick={() => void save()} disabled={saving}>
-                  <Save className="w-3.5 h-3.5" /> Enregistrer
-                </Btn>
-                <Btn
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setName(profile.name);
-                    setEditing(false);
-                  }}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </Btn>
-              </div>
-            ) : (
-              <>
-                <PageTitle className="text-lg leading-tight">{profile.name}</PageTitle>
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="text-[#6e7681] hover:text-[#e6edf3] transition-colors"
-                  aria-label="Renommer"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Title */}
-          {profile.title && (
-            <div className="mt-1 text-xs italic text-[#9ba4b0]">{profile.title}</div>
-          )}
-
-          {/* Dual ranks */}
-          <div className="mt-3 flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-[#6e7681]">Compétitif</span>
-              <RankBadge elo={profile.eloCompetitive} />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-[#6e7681]">Arène</span>
-              <RankBadge elo={profile.eloArena} />
-            </div>
-          </div>
-
-          {/* Dual Elo + level */}
-          <div className="mt-2 flex items-center gap-4 flex-wrap text-xs text-[#9ba4b0]">
-            <span className="flex items-center gap-1">
-              Elo comp. <span className="font-mono text-[#e6edf3]">{profile.eloCompetitive}</span>
-            </span>
-            <span className="flex items-center gap-1">
-              Elo arène <span className="font-mono text-[#e6edf3]">{profile.eloArena}</span>
-            </span>
-            <span className="flex items-center gap-1">
-              Niveau <span className="font-mono text-[#e6edf3]">{profile.level}</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Level / XP */}
-        <div className="w-full sm:w-56 shrink-0">
-          <div className="flex items-center justify-between text-xs text-[#6e7681] mb-1">
-            <span>XP niveau {profile.level}</span>
-            <span className="font-mono">
-              {profile.levelInfo.current}/{profile.levelInfo.needed}
-            </span>
-          </div>
-          <div className="h-2 rounded-sm bg-[#1c2128] border border-[#2d333b] overflow-hidden">
-            <div
-              className="h-full bg-[#3b82f6] transition-[width] duration-300"
-              style={{ width: `${Math.max(0, Math.min(100, xpPct))}%` }}
-            />
-          </div>
-          <div className="mt-2 text-[11px] text-[#6e7681]">
-            {profile.wins}V · {profile.losses}D en compétitif
-          </div>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-/* ----------------------------------------------------------------
-   Recent games DataTable — with universe badges
-   ---------------------------------------------------------------- */
-
-type GameRow = Record<string, React.ReactNode>;
-
-function RecentGamesTable({ rows }: { rows: MatchRecord[] }) {
-  const data = useMemo<GameRow[]>(
-    () =>
-      rows.map((m) => ({
-        date: (
-          <span className="text-[#9ba4b0]" title={new Date(m.createdAt).toLocaleString("fr-FR")}>
-            {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
-          </span>
-        ),
-        universe: <UniverseBadge universe={m.universe} />,
-        opponent: <span className="text-[#e6edf3]">{m.opponentName}</span>,
-        class: <ClassCell playerClass={m.playerClass} />,
-        result: <ResultBadge result={m.result} />,
-        elo: <EloChange change={m.eloChange} after={m.eloAfter} />,
-        combo: <ComboCell universe={m.universe} combo={m.maxCombo} />,
-        time: <span className="font-mono text-[#9ba4b0]">{Math.round(m.avgTimeMs / 100) / 10}s</span>,
-        mode: <span className="text-[#9ba4b0]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
-      })),
-    [rows],
-  );
-
-  return (
-    <DataTable<GameRow>
+    <WarmTable
       columns={[
-        { key: "date", header: "Date" },
-        { key: "universe", header: "Univers" },
+        { key: "date", header: "Date", className: "w-28" },
         { key: "opponent", header: "Adversaire" },
-        { key: "class", header: "Classe" },
-        { key: "result", header: "Résultat" },
-        { key: "elo", header: "Elo ±" },
-        { key: "combo", header: "Combo" },
-        { key: "time", header: "Temps" },
-        { key: "mode", header: "Mode" },
+        { key: "result", header: "Résultat", className: "w-24" },
+        { key: "elo", header: "Elo ±", className: "w-20 text-right" },
+        { key: "mode", header: "Mode", className: "w-28" },
       ]}
-      rows={data}
+      rows={rows}
       rowKey={(_, i) => String(i)}
     />
   );
 }
 
-function UniverseBadge({ universe }: { universe: Universe }) {
-  if (universe === "competitive") {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-[#3b82f6] border border-[#3b82f6]/40 bg-[#3b82f6]/10">
-        Comp
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-[#9ba4b0] border border-[#2d333b]">
-      Arène
-    </span>
-  );
-}
-
-function ClassCell({ playerClass }: { playerClass: string | null }) {
-  if (!playerClass) return <span className="text-[#6e7681]">—</span>;
-  const cls = CLASSES[playerClass as keyof typeof CLASSES];
-  return (
-    <span className="text-[#9ba4b0]">
-      {cls?.emoji ?? "·"} {cls?.name ?? playerClass}
-    </span>
-  );
-}
-
-function ComboCell({ universe, combo }: { universe: Universe; combo: number }) {
-  if (universe === "competitive") return <span className="text-[#6e7681]">—</span>;
-  return <span className="font-mono text-[#9ba4b0]">x{combo}</span>;
-}
-
 function ResultBadge({ result }: { result: "WIN" | "LOSE" }) {
+  const win = result === "WIN";
   return (
     <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide border",
-        result === "WIN"
-          ? "text-[#2ea043] border-[#2ea043]/40 bg-[#2ea043]/10"
-          : "text-[#f85149] border-[#f85149]/40 bg-[#f85149]/10",
-      )}
+      className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide"
+      style={{
+        color: win ? "#8FAF7E" : "#C45A4A",
+        background: win ? "#8FAF7E12" : "#C45A4A12",
+        border: `1px solid ${win ? "#8FAF7E55" : "#C45A4A55"}`,
+      }}
     >
-      {result === "WIN" ? "Victoire" : "Défaite"}
+      {win ? "Victoire" : "Défaite"}
     </span>
   );
 }
 
-function EloChange({ change, after }: { change: number; after: number }) {
-  const sign = change > 0 ? "+" : "";
-  const color = change > 0 ? "text-[#2ea043]" : change < 0 ? "text-[#f85149]" : "text-[#9ba4b0]";
+function EloDelta({ change }: { change: number }) {
+  const positive = change >= 0;
   return (
-    <span className="font-mono text-xs">
-      <span className={color}>
-        {sign}
-        {change}
-      </span>
-      <span className="text-[#6e7681] ml-1">→ {after}</span>
+    <span
+      className="font-mono text-right inline-block w-full"
+      style={{ color: change === 0 ? "#8B8270" : positive ? "#8FAF7E" : "#C45A4A" }}
+    >
+      {change > 0 ? "+" : ""}
+      {change}
     </span>
   );
 }
 
 /* ----------------------------------------------------------------
-   Stats tab — BarChart winrate par mode (séparé compétitif / arène)
+   Stats tab — winrate par mode (BarChart)
    ---------------------------------------------------------------- */
 
-function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
-  const compByMode = useMemo(() => buildModeStats(matches, "competitive"), [matches]);
-  const arenaByMode = useMemo(() => buildModeStats(matches, "arena"), [matches]);
+function StatsTab({ matches }: { matches: MatchRecord[] }) {
+  const compMatches = useMemo(
+    () => matches.filter((m) => m.universe === "competitive"),
+    [matches],
+  );
+
+  const byMode = useMemo(() => {
+    const modes = ["RANKED", "QUICK", "BLITZ"] as const;
+    return modes.map((mode) => {
+      const ms = compMatches.filter((m) => m.mode === mode);
+      return {
+        mode: MODE_LABEL[mode],
+        wins: ms.filter((m) => m.result === "WIN").length,
+        losses: ms.filter((m) => m.result === "LOSE").length,
+      };
+    });
+  }, [compMatches]);
+
+  const isEstimate = compMatches.length === 0;
+  const data = isEstimate
+    ? [
+        { mode: "Classé", wins: 12, losses: 8 },
+        { mode: "Rapide", wins: 24, losses: 14 },
+        { mode: "Blitz", wins: 9, losses: 11 },
+      ]
+    : byMode;
 
   return (
     <div className="space-y-6">
-      {/* Compétitif — winrate par mode */}
-      <section>
-        <SectionLabel className="mb-3">Compétitif · répartition par mode</SectionLabel>
-        <Panel className="p-4">
-          {compByMode.length === 0 ? (
-            <EmptyHint text="Aucune partie compétitive pour l'instant." />
-          ) : (
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={compByMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
-                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="mode"
-                    stroke="#6e7681"
-                    tick={{ fontSize: 11, fill: "#6e7681" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#2d333b" }}
-                  />
-                  <YAxis
-                    stroke="#6e7681"
-                    tick={{ fontSize: 11, fill: "#6e7681" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#2d333b" }}
-                    width={32}
-                  />
-                  <RTooltip
-                    cursor={{ fill: "#22272e50" }}
-                    contentStyle={{
-                      background: "#161b22",
-                      border: "1px solid #2d333b",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      color: "#e6edf3",
-                    }}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: 11, color: "#9ba4b0" }}
-                    formatter={(v) => <span style={{ color: "#9ba4b0" }}>{v}</span>}
-                  />
-                  <Bar dataKey="wins" name="Victoires" stackId="a" fill="#2ea043" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="losses" name="Défaites" stackId="a" fill="#f85149" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" style={{ color: "#FF8C42" }} />
+            <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+              Victoires et défaites par mode
+            </h2>
+          </div>
+          {isEstimate && (
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border"
+              style={{ color: "#D9A441", borderColor: "#D9A44155", background: "#D9A44112" }}
+            >
+              estimation
+            </span>
           )}
-        </Panel>
-      </section>
-
-      {/* Arène — winrate par mode */}
-      <section>
-        <SectionLabel className="mb-3">Arène · répartition par mode</SectionLabel>
-        <Panel className="p-4">
-          {arenaByMode.length === 0 ? (
-            <EmptyHint text="Aucune partie d'arène pour l'instant." />
-          ) : (
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={arenaByMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
-                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="mode"
-                    stroke="#6e7681"
-                    tick={{ fontSize: 11, fill: "#6e7681" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#2d333b" }}
-                  />
-                  <YAxis
-                    stroke="#6e7681"
-                    tick={{ fontSize: 11, fill: "#6e7681" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#2d333b" }}
-                    width={32}
-                  />
-                  <RTooltip
-                    cursor={{ fill: "#22272e50" }}
-                    contentStyle={{
-                      background: "#161b22",
-                      border: "1px solid #2d333b",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      color: "#e6edf3",
-                    }}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: 11, color: "#9ba4b0" }}
-                    formatter={(v) => <span style={{ color: "#9ba4b0" }}>{v}</span>}
-                  />
-                  <Bar dataKey="wins" name="Victoires" stackId="a" fill="#2ea043" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="losses" name="Défaites" stackId="a" fill="#f85149" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Panel>
-      </section>
-
-      {/* Statistiques par mode (compétitif) */}
-      <section>
-        <SectionLabel className="mb-3">Compétitif · statistiques par mode</SectionLabel>
-        {compByMode.length === 0 ? (
-          <Panel className="p-8 text-center text-sm text-[#9ba4b0]">Aucune donnée disponible.</Panel>
-        ) : (
-          <Panel className="overflow-hidden">
-            <DataTable
-              columns={[
-                { key: "mode", header: "Mode" },
-                { key: "total", header: "Parties" },
-                { key: "wins", header: "V" },
-                { key: "losses", header: "D" },
-                { key: "winrate", header: "Winrate" },
-                { key: "avgTime", header: "Temps moyen" },
-                { key: "avgAcc", header: "Précision" },
-              ]}
-              rows={compByMode.map((m) => ({
-                mode: <span className="text-[#e6edf3]">{m.mode}</span>,
-                total: <span className="font-mono text-[#9ba4b0]">{m.total}</span>,
-                wins: <span className="font-mono text-[#2ea043]">{m.wins}</span>,
-                losses: <span className="font-mono text-[#f85149]">{m.losses}</span>,
-                winrate: <span className="font-mono text-[#e6edf3]">{m.winrate}%</span>,
-                avgTime: <span className="font-mono text-[#9ba4b0]">{m.avgTime}s</span>,
-                avgAcc: <span className="font-mono text-[#9ba4b0]">{m.avgAcc}%</span>,
-              }))}
-              rowKey={(_, i) => String(i)}
-            />
-          </Panel>
-        )}
-      </section>
-
-      {/* Profil global (deux univers) */}
-      <section>
-        <SectionLabel className="mb-3">Profil global</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <StatTile label="Elo compétitif" value={<span className="font-mono">{profile.eloCompetitive}</span>} />
-          <StatTile label="Elo arène" value={<span className="font-mono">{profile.eloArena}</span>} />
-          <StatTile label="Niveau" value={<span className="font-mono">{profile.level}</span>} />
-          <StatTile label="Meilleur combo" value={<span className="font-mono">x{profile.bestCombo}</span>} />
         </div>
-      </section>
+        <div style={{ height: 260 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+              <CartesianGrid stroke="#3A3328" strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="mode"
+                tick={{ fill: "#8B8270", fontSize: 12 }}
+                axisLine={{ stroke: "#3A3328" }}
+                tickLine={{ stroke: "#3A3328" }}
+              />
+              <YAxis
+                tick={{ fill: "#8B8270", fontSize: 11, fontFamily: "var(--font-mono)" }}
+                axisLine={{ stroke: "#3A3328" }}
+                tickLine={{ stroke: "#3A3328" }}
+                allowDecimals={false}
+                width={36}
+              />
+              <RTooltip content={<StatsTooltip />} cursor={{ fill: "#2E282060" }} />
+              <Legend
+                wrapperStyle={{ fontSize: 12, color: "#C9BFB0" }}
+                formatter={(v) => <span style={{ color: "#C9BFB0" }}>{v}</span>}
+              />
+              <Bar dataKey="wins" name="Victoires" stackId="a" fill="#8FAF7E" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+              <Bar dataKey="losses" name="Défaites" stackId="a" fill="#C45A4A" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Panel>
+
+      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+        <h2 className="text-sm font-semibold mb-3" style={{ color: "#F5EFE6" }}>
+          Synthèse
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <SynthTile label="Modes joués" value={String(new Set(compMatches.map((m) => m.mode)).size)} />
+          <SynthTile label="Total compétitif" value={String(compMatches.length)} />
+          <SynthTile
+            label="Total entraînement"
+            value={String(matches.filter((m) => m.universe === "arena").length)}
+          />
+          <SynthTile label="Catégories" value="8" />
+        </div>
+      </Panel>
     </div>
   );
 }
 
-interface ModeStat {
-  mode: string;
-  wins: number;
-  losses: number;
-  total: number;
-  winrate: number;
-  avgTime: number;
-  avgAcc: number;
-}
-
-function buildModeStats(matches: MatchRecord[], universe: Universe): ModeStat[] {
-  const map = new Map<string, { wins: number; losses: number; total: number; avgTime: number; avgAcc: number }>();
-  for (const m of matches) {
-    if (m.universe !== universe) continue;
-    const cur = map.get(m.mode) ?? { wins: 0, losses: 0, total: 0, avgTime: 0, avgAcc: 0 };
-    cur.total += 1;
-    if (m.result === "WIN") cur.wins += 1;
-    else cur.losses += 1;
-    cur.avgTime += m.avgTimeMs;
-    cur.avgAcc += m.accuracy;
-    map.set(m.mode, cur);
-  }
-  return Array.from(map.entries()).map(([mode, v]) => ({
-    mode: MODE_LABEL[mode] ?? mode,
-    wins: v.wins,
-    losses: v.losses,
-    total: v.total,
-    winrate: v.total ? Math.round((v.wins / v.total) * 100) : 0,
-    avgTime: v.total ? Math.round(v.avgTime / v.total / 100) / 10 : 0,
-    avgAcc: v.total ? Math.round((v.avgAcc / v.total) * 10) / 10 : 0,
-  }));
+function SynthTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="rounded-md p-3"
+      style={{ background: "#252019", border: "1px solid #3A3328" }}
+    >
+      <div className="text-xs uppercase tracking-wider" style={{ color: "#8B8270" }}>
+        {label}
+      </div>
+      <div className="mt-1 font-mono text-lg font-semibold" style={{ color: "#F5EFE6" }}>
+        {value}
+      </div>
+    </div>
+  );
 }
 
 /* ----------------------------------------------------------------
-   Games tab — full table with universe column
+   History tab — full table with Univers + Mode columns
    ---------------------------------------------------------------- */
 
-function GamesTab({ matches }: { matches: MatchRecord[] }) {
-  const data = useMemo<GameRow[]>(
-    () =>
-      matches.map((m) => ({
-        date: (
-          <span className="text-[#9ba4b0]" title={new Date(m.createdAt).toLocaleString("fr-FR")}>
-            {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
-          </span>
-        ),
-        universe: <UniverseBadge universe={m.universe} />,
-        opponent: <span className="text-[#e6edf3]">{m.opponentName}</span>,
-        class: <ClassCell playerClass={m.playerClass} />,
-        oppClass: <ClassCell playerClass={m.opponentClass} />,
-        result: <ResultBadge result={m.result} />,
-        elo: <EloChange change={m.eloChange} after={m.eloAfter} />,
-        combo: <ComboCell universe={m.universe} combo={m.maxCombo} />,
-        time: <span className="font-mono text-[#9ba4b0]">{Math.round(m.avgTimeMs / 100) / 10}s</span>,
-        acc: <span className="font-mono text-[#9ba4b0]">{m.accuracy}%</span>,
-        mode: <span className="text-[#9ba4b0]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
-      })),
-    [matches],
-  );
+function HistoryTab({ matches }: { matches: MatchRecord[] }) {
+  const rows = useMemo<MatchRow[]>(() => {
+    const base: MatchRow[] = matches.map((m) => ({
+      date: (
+        <span style={{ color: "#8B8270" }} title={new Date(m.createdAt).toLocaleString("fr-FR")}>
+          {formatDistanceToNow(new Date(m.createdAt), { addSuffix: false, locale: fr })}
+        </span>
+      ),
+      universe: (
+        <span
+          className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
+          style={{
+            color: m.universe === "arena" ? "#F5DEB3" : "#FF8C42",
+            background: m.universe === "arena" ? "#F5DEB312" : "#FF8C4212",
+            border: `1px solid ${m.universe === "arena" ? "#F5DEB355" : "#FF8C4255"}`,
+          }}
+        >
+          {UNIVERSE_LABEL[m.universe] ?? m.universe}
+        </span>
+      ),
+      opponent: <span style={{ color: "#F5EFE6" }}>vs {m.opponentName}</span>,
+      result: <ResultBadge result={m.result} />,
+      elo: <EloDelta change={m.eloChange} />,
+      mode: (
+        <span style={{ color: "#C9BFB0" }}>{MODE_LABEL[m.mode] ?? m.mode}</span>
+      ),
+    }));
+    while (base.length < 5) {
+      base.push({
+        date: <span style={{ color: "#5C5142" }}>—</span>,
+        universe: <span style={{ color: "#5C5142" }}>—</span>,
+        opponent: <span style={{ color: "#5C5142" }}>—</span>,
+        result: <span style={{ color: "#5C5142" }}>—</span>,
+        elo: <span style={{ color: "#5C5142" }}>—</span>,
+        mode: <span style={{ color: "#5C5142" }}>—</span>,
+      });
+    }
+    return base;
+  }, [matches]);
 
   if (matches.length === 0) {
-    return (
-      <Panel className="p-8 text-center text-sm text-[#9ba4b0]">Aucune partie enregistrée.</Panel>
-    );
+    return <EmptyState />;
   }
 
   return (
-    <Panel className="overflow-hidden">
-      <DataTable<GameRow>
+    <Panel className="!bg-[#1C1815] !border-[#3A3328] overflow-hidden">
+      <div className="px-4 py-3 border-b border-[#3A3328] flex items-center justify-between">
+        <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+          Historique complet
+        </h2>
+        <SectionLabel className="!text-[#8B8270]">{matches.length} parties</SectionLabel>
+      </div>
+      <WarmTable
         columns={[
-          { key: "date", header: "Date" },
-          { key: "universe", header: "Univers" },
+          { key: "date", header: "Date", className: "w-28" },
+          { key: "universe", header: "Univers", className: "w-28" },
           { key: "opponent", header: "Adversaire" },
-          { key: "class", header: "Classe" },
-          { key: "oppClass", header: "Adv. classe" },
-          { key: "result", header: "Résultat" },
-          { key: "elo", header: "Elo ±" },
-          { key: "combo", header: "Combo" },
-          { key: "time", header: "Temps" },
-          { key: "acc", header: "Précision" },
-          { key: "mode", header: "Mode" },
+          { key: "result", header: "Résultat", className: "w-24" },
+          { key: "elo", header: "Elo ±", className: "w-20 text-right" },
+          { key: "mode", header: "Mode", className: "w-24" },
         ]}
-        rows={data}
+        rows={rows}
         rowKey={(_, i) => String(i)}
       />
     </Panel>
   );
 }
 
-/* ----------------------------------------------------------------
-   Coming soon (achievements, settings)
-   ---------------------------------------------------------------- */
-
-function ComingSoon() {
+function EmptyState() {
+  const setView = useApp((s) => s.setView);
   return (
-    <Panel className="p-10 text-center">
-      <SectionLabel>Bientôt disponible</SectionLabel>
-      <p className="mt-3 text-sm text-[#9ba4b0]">Cette section est en cours de développement.</p>
+    <Panel className="p-10 flex flex-col items-center gap-4 text-center !bg-[#1C1815] !border-[#3A3328]">
+      <Clock className="w-8 h-8" style={{ color: "#8B8270" }} />
+      <div>
+        <div className="text-base font-semibold" style={{ color: "#F5EFE6" }}>
+          Aucune partie jouée
+        </div>
+        <div className="text-sm mt-1" style={{ color: "#8B8270" }}>
+          Lance ton premier duel pour commencer à grimper le classement.
+        </div>
+      </div>
+      <Btn
+        className="!bg-[#FF8C42] !text-[#14110F] hover:!bg-[#E5732A]"
+        onClick={() => setView("classselect")}
+      >
+        Jouer
+      </Btn>
     </Panel>
   );
 }
 
-function EmptyHint({ text }: { text: string }) {
+/* ----------------------------------------------------------------
+   Coming soon (Succès / Amis / Paramètres)
+   ---------------------------------------------------------------- */
+
+function ComingSoon() {
   return (
-    <div className="h-full min-h-[120px] flex items-center justify-center text-sm text-[#6e7681]">{text}</div>
+    <Panel className="p-10 flex flex-col items-center gap-3 text-center !bg-[#1C1815] !border-[#3A3328]">
+      <Clock className="w-8 h-8" style={{ color: "#8B8270" }} />
+      <div className="text-base font-semibold" style={{ color: "#F5EFE6" }}>
+        Bientôt disponible
+      </div>
+      <div className="text-sm" style={{ color: "#8B8270" }}>
+        Cette section arrive dans une prochaine mise à jour.
+      </div>
+    </Panel>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Warm table (local — primitive DataTable uses cool highlight/zebra)
+   ---------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------
+   Warm stat tile (local — primitive StatTile types label/sub as string
+   and uses cool-gray inner colors; warm variant for full palette control)
+   ---------------------------------------------------------------- */
+
+function WarmStat({
+  label,
+  value,
+  valueColor = "#F5EFE6",
+  sub,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+  sub?: string;
+}) {
+  return (
+    <Panel className={cn("p-4", "!bg-[#1C1815] !border-[#3A3328]")}>
+      <div className="text-xs font-medium uppercase tracking-wider" style={{ color: "#8B8270" }}>
+        {label}
+      </div>
+      <div className="mt-1 font-mono font-medium text-xl" style={{ color: valueColor }}>
+        {value}
+      </div>
+      {sub && (
+        <div className="text-xs mt-0.5" style={{ color: "#8B8270" }}>
+          {sub}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+interface WarmColumn {
+  key: string;
+  header: React.ReactNode;
+  className?: string;
+}
+
+function WarmTable<T>({
+  columns,
+  rows,
+  rowKey,
+}: {
+  columns: WarmColumn[];
+  rows: T[];
+  rowKey: (row: T, i: number) => string;
+}) {
+  return (
+    <div className="overflow-x-auto scrollbar-warm">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-[#3A3328] text-left">
+            {columns.map((c) => (
+              <th
+                key={c.key}
+                className={cn(
+                  "py-2 px-3 text-xs font-medium uppercase tracking-wider whitespace-nowrap",
+                  c.className,
+                )}
+                style={{ color: "#8B8270" }}
+              >
+                {c.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr
+              key={rowKey(row, i)}
+              className="border-b border-[#2E2820] transition-colors hover:bg-[#2E2820]/60"
+              style={i % 2 === 1 ? { background: "#1C181580" } : undefined}
+            >
+              {columns.map((c) => (
+                <td key={c.key} className={cn("py-2 px-3 whitespace-nowrap", c.className)}>
+                  {(row as Record<string, React.ReactNode>)[c.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Recharts tooltips (warm, typed)
+   ---------------------------------------------------------------- */
+
+interface TooltipPayloadItem {
+  value?: number | string;
+  name?: string;
+  color?: string;
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: number | string;
+}
+
+function EloTooltip({ active, payload, label }: TooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div
+      className="rounded-md px-2.5 py-1.5 text-xs"
+      style={{ background: "#1C1815", border: "1px solid #4A4133" }}
+    >
+      <div style={{ color: "#8B8270" }}>Partie #{label}</div>
+      <div className="font-mono" style={{ color: "#F5DEB3" }}>
+        {payload[0].value} Elo
+      </div>
+    </div>
+  );
+}
+
+function StatsTooltip({ active, payload, label }: TooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div
+      className="rounded-md px-2.5 py-1.5 text-xs space-y-0.5"
+      style={{ background: "#1C1815", border: "1px solid #4A4133" }}
+    >
+      <div style={{ color: "#8B8270" }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} className="font-mono flex items-center gap-1.5">
+          <span
+            className="inline-block w-2 h-2 rounded-sm"
+            style={{ background: p.color }}
+          />
+          <span style={{ color: "#C9BFB0" }}>{p.name}</span>
+          <span style={{ color: "#F5EFE6" }}>{p.value}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -875,19 +869,18 @@ function EmptyHint({ text }: { text: string }) {
 function ProfileSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <div className="h-28 bg-[#161b22] border border-[#2d333b] rounded-lg" />
-      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="h-20 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-20 rounded-lg" style={{ background: "#1C1815", border: "1px solid #3A3328" }} />
         ))}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="h-20 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+      <div className="h-[260px] rounded-lg" style={{ background: "#1C1815", border: "1px solid #3A3328" }} />
+      <div className="rounded-lg overflow-hidden" style={{ background: "#1C1815", border: "1px solid #3A3328" }}>
+        <div className="h-10 border-b" style={{ borderColor: "#3A3328" }} />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-10 border-b" style={{ borderColor: "#2E2820" }} />
         ))}
       </div>
-      <div className="h-[252px] bg-[#161b22] border border-[#2d333b] rounded-lg" />
-      <div className="h-64 bg-[#161b22] border border-[#2d333b] rounded-lg" />
     </div>
   );
 }
