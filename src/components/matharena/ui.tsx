@@ -5,21 +5,28 @@ import { cn } from "@/lib/utils";
 import { divisionFor } from "@/lib/game/divisions";
 
 /* ============================================================
-   MathArena UI primitives — warm dark palette
+   MathArena UI primitives — warm LIGHT mode
+   Outline buttons, cream cards, subtle borders, ornaments.
    ============================================================ */
 
 type BtnVariant = "primary" | "training" | "secondary" | "danger" | "ghost";
 type BtnSize = "sm" | "md" | "lg";
 
 const BTN_BASE =
-  "inline-flex items-center justify-center gap-2 font-medium transition-colors duration-200 rounded-md select-none disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap";
+  "inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 rounded-md select-none disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap";
 
 const BTN_VARIANT: Record<BtnVariant, string> = {
-  primary: "bg-[#ff8c42] hover:bg-[#e5732a] text-[#14110f]",
-  training: "bg-[#f5deb3] hover:bg-[#e5c99a] text-[#14110f]",
-  secondary: "bg-transparent border border-[#4a4133] text-[#f5efe6] hover:bg-[#2e2820] hover:border-[#5c5142]",
-  danger: "bg-transparent border border-[#c45a4a] text-[#c45a4a] hover:bg-[rgba(196,90,74,0.1)]",
-  ghost: "bg-transparent text-[#8b8270] hover:text-[#f5efe6] hover:bg-[#2e2820]",
+  // Outline orange → fill on hover
+  primary:
+    "bg-transparent border border-[#e8823d] text-[#e8823d] hover:bg-[#e8823d] hover:text-[#faf6f0]",
+  // Outline golden peach → fill on hover
+  training:
+    "bg-transparent border border-[#f0b27a] text-[#f0b27a] hover:bg-[#f0b27a] hover:text-[#faf6f0]",
+  secondary:
+    "bg-[#faf6f0] border border-[#dcd0bc] text-[#6b5f4f] hover:bg-[#efe8db] hover:text-[#2a2520]",
+  danger:
+    "bg-transparent border border-[#b5524a] text-[#b5524a] hover:bg-[rgba(181,82,74,0.08)]",
+  ghost: "bg-transparent text-[#9c8e7a] hover:text-[#2a2520] hover:bg-[#efe8db]",
 };
 
 const BTN_SIZE: Record<BtnSize, string> = {
@@ -39,7 +46,7 @@ export const Btn = React.forwardRef<HTMLButtonElement, BtnProps>(
 );
 Btn.displayName = "Btn";
 
-/* Panel — card warm */
+/* Panel — cream card, subtle border */
 export function Panel({
   className,
   children,
@@ -49,8 +56,8 @@ export function Panel({
   return (
     <div
       className={cn(
-        "bg-[#1c1815] border border-[#4a4133] rounded-[10px]",
-        hover && "transition-colors duration-200 hover:border-[#5c5142]",
+        "bg-[#faf6f0] border border-[#ebe2d2] rounded-md",
+        hover && "transition-all duration-300 hover:border-[#dcd0bc] hover:shadow-[0_0_24px_rgba(232,130,61,0.06)] hover:-translate-y-0.5",
         className,
       )}
       {...props}
@@ -62,13 +69,13 @@ export function Panel({
 
 export function PageTitle({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <h1 className={cn("text-2xl font-semibold text-[#f5efe6] tracking-tight", className)}>{children}</h1>
+    <h1 className={cn("text-2xl font-semibold text-[#2a2520] tracking-[-0.01em]", className)}>{children}</h1>
   );
 }
 
 export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("text-xs font-medium uppercase tracking-wider text-[#8b8270]", className)}>
+    <span className={cn("text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]", className)}>
       {children}
     </span>
   );
@@ -87,9 +94,9 @@ export function StatTile({
 }) {
   return (
     <Panel className={cn("p-4", className)}>
-      <div className="text-xs font-medium uppercase tracking-wider text-[#8b8270]">{label}</div>
-      <div className="mt-1 font-mono font-medium text-xl text-[#f5efe6]">{value}</div>
-      {sub && <div className="text-xs text-[#8b8270] mt-0.5">{sub}</div>}
+      <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">{label}</div>
+      <div className="mt-1 font-mono font-bold text-xl text-[#2a2520]">{value}</div>
+      {sub && <div className="text-xs text-[#9c8e7a] mt-0.5">{sub}</div>}
     </Panel>
   );
 }
@@ -109,7 +116,18 @@ export function RankBadge({ elo, className }: { elo: number; className?: string 
   );
 }
 
-/* Tabs — warm (orange active) */
+/* OrnamentDivider — magazine style ── • ── */
+export function OrnamentDivider({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex items-center gap-2 text-[#c9bba0] my-3", className)}>
+      <span className="flex-1 h-px bg-[#ebe2d2]" />
+      <span className="text-xs">•</span>
+      <span className="flex-1 h-px bg-[#ebe2d2]" />
+    </div>
+  );
+}
+
+/* Tabs — warm (underline active) */
 export function Tabs<T extends string>({
   options,
   value,
@@ -121,20 +139,23 @@ export function Tabs<T extends string>({
   value: T;
   onChange: (v: T) => void;
   className?: string;
-  accent?: "orange" | "beige";
+  accent?: "orange" | "peach";
 }) {
-  const activeColor = accent === "orange" ? "bg-[#ff8c42] text-[#14110f]" : "bg-[#f5deb3] text-[#14110f]";
+  const activeColor = accent === "orange" ? "#e8823d" : "#f0b27a";
   return (
-    <div className={cn("inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#252019] border border-[#4a4133]", className)}>
+    <div className={cn("inline-flex items-center gap-1", className)}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-            value === o.value ? activeColor : "text-[#8b8270] hover:text-[#f5efe6] hover:bg-[#2e2820]",
+            "px-3 py-1.5 text-sm font-medium transition-colors border-b-2",
+            value === o.value
+              ? "border-current"
+              : "border-transparent text-[#9c8e7a] hover:text-[#6b5f4f]",
           )}
+          style={value === o.value ? { color: activeColor, borderColor: activeColor } : undefined}
         >
           {o.label}
         </button>
@@ -143,29 +164,31 @@ export function Tabs<T extends string>({
   );
 }
 
-/* DataTable — dense warm */
+/* DataTable — dense, warm, no zebra, fine dividers */
 export function DataTable<T>({
   columns,
   rows,
   rowKey,
   highlight,
+  rowClassName,
   className,
 }: {
   columns: { key: string; header: React.ReactNode; className?: string }[];
   rows: T[];
   rowKey: (row: T, i: number) => string;
   highlight?: (row: T, i: number) => boolean;
+  rowClassName?: (row: T, i: number) => string | undefined;
   className?: string;
 }) {
   return (
     <div className={cn("overflow-x-auto scrollbar-warm", className)}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#4a4133] text-left">
+          <tr className="border-b border-[#ebe2d2] text-left">
             {columns.map((c) => (
               <th
                 key={c.key}
-                className={cn("py-2 px-3 text-xs font-medium uppercase tracking-wider text-[#8b8270] whitespace-nowrap", c.className)}
+                className={cn("py-2 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a] whitespace-nowrap", c.className)}
               >
                 {c.header}
               </th>
@@ -177,17 +200,14 @@ export function DataTable<T>({
             <tr
               key={rowKey(row, i)}
               className={cn(
-                "border-b border-[#3a3328] transition-colors",
-                highlight?.(row, i)
-                  ? "bg-[rgba(255,140,66,0.06)] border-l-2 border-l-[#ff8c42]"
-                  : i % 2 === 1
-                    ? "bg-[#1c1815]/40"
-                    : "",
-                "hover:bg-[#2e2820]",
+                "border-b border-[#ebe2d2] transition-colors",
+                highlight?.(row, i) ? "bg-[rgba(232,130,61,0.04)] border-l-2 border-l-[#e8823d]" : "",
+                rowClassName?.(row, i),
+                "hover:bg-[#efe8db]",
               )}
             >
               {columns.map((c) => (
-                <td key={c.key} className={cn("py-2 px-3 text-[#f5efe6] whitespace-nowrap", c.className)}>
+                <td key={c.key} className={cn("py-2 px-3 text-[#2a2520] whitespace-nowrap", c.className)}>
                   {(row as Record<string, React.ReactNode>)[c.key]}
                 </td>
               ))}

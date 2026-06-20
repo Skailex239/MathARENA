@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
-import { Btn, Panel, SectionLabel, RankBadge } from "./ui";
+import { Btn, Panel, SectionLabel, RankBadge, OrnamentDivider } from "./ui";
 import { api, type LeaderboardEntry, type MatchRecord } from "@/lib/api";
-import { Swords, Trophy, Activity, Users, ChevronRight, Flame, Clock } from "lucide-react";
+import { Swords, Trophy, Activity, Users, ChevronRight, Zap, Clock } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { Universe } from "@/lib/game/progression";
 
 const COMP_MODES = [
   { value: "RANKED", label: "Classé" },
@@ -24,7 +24,7 @@ const TRAINING_EXERCISES = [
 const NEWS = [
   { emoji: "🏆", title: "Saison 3 lancée", time: "il y a 2h", desc: "Nouvelles récompenses et reset Elo partiel." },
   { emoji: "⚔️", title: "Tournoi week-end", time: "hier", desc: "Bracket 32 joueurs, inscription gratuite." },
-  { emoji: "🤖", title: "Boss IA", time: "il y a 2 jours", desc: "Premier à battre le boss gagne un titre unique." },
+  { emoji: "🤖", title: "Boss IA", time: "il y a 2 jours", desc: "Premier à battre le boss gagne un titre." },
 ];
 
 function useLivePlayers() {
@@ -57,7 +57,7 @@ export function HomeScreen() {
     api.getMatches(6).then(setRecent).catch(() => {});
   }, []);
 
-  const isTraining = universe === "arena"; // "arena" = Entraînement côté UI
+  const isTraining = universe === "arena";
 
   const launch = () => {
     setUniverse(isTraining ? "arena" : "competitive");
@@ -67,6 +67,7 @@ export function HomeScreen() {
   };
 
   const recentComp = recent.filter((m) => m.universe === "competitive").slice(0, 5);
+  const accentColor = isTraining ? "#f0b27a" : "#e8823d";
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 pb-8">
@@ -74,14 +75,14 @@ export function HomeScreen() {
         {/* ===== COLONNE PRINCIPALE ===== */}
         <div className="space-y-5">
           {/* Play card */}
-          <Panel className="p-5">
-            {/* Mode tabs (Compétitif / Entraînement) */}
-            <div className="flex gap-6 border-b border-[#3a3328] mb-4">
+          <Panel className="p-6">
+            {/* Mode tabs */}
+            <div className="flex gap-6 border-b border-[#ebe2d2] mb-5">
               <button
                 onClick={() => setUniverse("competitive")}
                 className={cn(
                   "pb-2.5 -mb-px text-sm font-semibold transition-colors border-b-2",
-                  !isTraining ? "border-[#ff8c42] text-[#ff8c42]" : "border-transparent text-[#8b8270] hover:text-[#c9bfb0]",
+                  !isTraining ? "border-[#e8823d] text-[#e8823d]" : "border-transparent text-[#9c8e7a] hover:text-[#6b5f4f]",
                 )}
               >
                 🏆 Compétitif
@@ -90,7 +91,7 @@ export function HomeScreen() {
                 onClick={() => setUniverse("arena")}
                 className={cn(
                   "pb-2.5 -mb-px text-sm font-semibold transition-colors border-b-2",
-                  isTraining ? "border-[#f5deb3] text-[#f5deb3]" : "border-transparent text-[#8b8270] hover:text-[#c9bfb0]",
+                  isTraining ? "border-[#f0b27a] text-[#f0b27a]" : "border-transparent text-[#9c8e7a] hover:text-[#6b5f4f]",
                 )}
               >
                 🎯 Entraînement
@@ -99,17 +100,19 @@ export function HomeScreen() {
 
             {!isTraining ? (
               <>
-                <h1 className="text-lg font-semibold text-[#f5efe6] mb-4">Duel compétitif</h1>
+                <h1 className="text-lg font-semibold text-[#2a2520] mb-4">Duel compétitif</h1>
 
                 <SectionLabel className="mb-2 block">Mode</SectionLabel>
-                <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#252019] border border-[#4a4133] mb-4">
+                <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#efe8db] border border-[#ebe2d2] mb-4">
                   {COMP_MODES.map((m) => (
                     <button
                       key={m.value}
                       onClick={() => setMode(m.value)}
                       className={cn(
-                        "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                        mode === m.value ? "bg-[#ff8c42] text-[#14110f]" : "text-[#8b8270] hover:text-[#f5efe6] hover:bg-[#2e2820]",
+                        "px-4 py-1.5 rounded text-sm font-medium transition-all",
+                        mode === m.value
+                          ? "bg-[#faf6f0] text-[#e8823d] shadow-sm border border-[#e8823d]/30"
+                          : "text-[#9c8e7a] hover:text-[#2a2520]",
                       )}
                     >
                       {m.label}
@@ -117,39 +120,40 @@ export function HomeScreen() {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm text-[#c9bfb0]">
-                    Premier à 7 points · Elo officiel · Pur skill
-                    {mode === "BLITZ" && " · 3s par question"}
-                    {mode === "RANKED" && " · Difficulté adaptative"}
-                  </p>
-                  <Btn onClick={launch} size="lg" className="shrink-0">
-                    <Swords className="w-4 h-4" /> Lancer le match
+                <p className="text-sm text-[#6b5f4f] mb-5">
+                  Premier à 7 points · Elo officiel · Pur skill
+                  {mode === "BLITZ" && " · 3s par question"}
+                  {mode === "RANKED" && " · Difficulté adaptative"}
+                </p>
+
+                <div className="flex justify-end">
+                  <Btn onClick={launch} size="lg">
+                    <Swords /> Lancer le match
                   </Btn>
                 </div>
               </>
             ) : (
               <>
-                <h1 className="text-lg font-semibold text-[#f5efe6] mb-1">Mode entraînement</h1>
-                <p className="text-sm text-[#c9bfb0] mb-4">Aucun impact sur ton Elo. Zone safe.</p>
+                <h1 className="text-lg font-semibold text-[#2a2520] mb-1">Mode entraînement</h1>
+                <p className="text-sm text-[#6b5f4f] mb-4">Aucun impact sur ton Elo. Zone safe.</p>
 
                 <SectionLabel className="mb-2 block">Choisis ton exercice</SectionLabel>
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2 mb-5">
                   {TRAINING_EXERCISES.map((ex) => (
                     <button
                       key={ex.id}
                       onClick={() => setExercise(ex.id)}
                       className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-[10px] border text-left transition-colors",
+                        "w-full flex items-center gap-3 p-3 rounded-md border text-left transition-all",
                         exercise === ex.id
-                          ? "border-[#f5deb3] bg-[rgba(245,222,179,0.06)]"
-                          : "border-[#4a4133] hover:border-[#5c5142] hover:bg-[#252019]",
+                          ? "border-[#f0b27a] bg-[rgba(240,178,122,0.06)]"
+                          : "border-[#ebe2d2] hover:border-[#dcd0bc] hover:bg-[#efe8db]",
                       )}
                     >
                       <span className="text-xl">{ex.emoji}</span>
                       <div className="flex-1">
-                        <div className={cn("text-sm font-semibold", exercise === ex.id ? "text-[#f5deb3]" : "text-[#f5efe6]")}>{ex.name}</div>
-                        <div className="text-xs text-[#8b8270]">{ex.desc}</div>
+                        <div className={cn("text-sm font-semibold", exercise === ex.id ? "text-[#f0b27a]" : "text-[#2a2520]")}>{ex.name}</div>
+                        <div className="text-xs text-[#9c8e7a]">{ex.desc}</div>
                       </div>
                     </button>
                   ))}
@@ -165,70 +169,71 @@ export function HomeScreen() {
           </Panel>
 
           {/* Recent matches */}
-          <Panel className="p-5">
+          <Panel className="p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#8b8270]" />
-                <h2 className="text-sm font-semibold text-[#f5efe6]">Derniers matchs</h2>
+                <Activity className="text-[#9c8e7a]" />
+                <h2 className="text-sm font-semibold text-[#2a2520]">Derniers matchs</h2>
               </div>
-              <button onClick={() => setView("profile")} className="text-xs text-[#8b8270] hover:text-[#ff8c42] flex items-center gap-0.5">
-                Tout voir <ChevronRight className="w-3 h-3" />
+              <button onClick={() => setView("profile")} className="text-xs text-[#9c8e7a] hover:text-[#e8823d] flex items-center gap-0.5 transition-colors">
+                Tout voir <ChevronRight />
               </button>
             </div>
             {recentComp.length === 0 ? (
-              <div className="py-8 text-center text-sm text-[#8b8270]">Aucune partie jouée. Lance ton premier duel.</div>
+              <div className="py-8 text-center text-sm text-[#9c8e7a]">Aucune partie jouée. Lance ton premier duel.</div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[#3a3328] text-left">
-                    <th className="py-1.5 px-2 text-xs font-medium uppercase tracking-wider text-[#8b8270]">Résultat</th>
-                    <th className="py-1.5 px-2 text-xs font-medium uppercase tracking-wider text-[#8b8270]">Adversaire</th>
-                    <th className="py-1.5 px-2 text-xs font-medium uppercase tracking-wider text-[#8b8270] hidden sm:table-cell">Mode</th>
-                    <th className="py-1.5 px-2 text-xs font-medium uppercase tracking-wider text-[#8b8270] text-right">Elo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentComp.map((m) => (
-                    <tr key={m.id} className="border-b border-[#3a3328] hover:bg-[#2e2820] transition-colors">
-                      <td className="py-2 px-2">
-                        <span className={cn("text-xs font-semibold", m.result === "WIN" ? "text-[#8faf7e]" : "text-[#c45a4a]")}>
-                          {m.result === "WIN" ? "Victoire" : "Défaite"}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2 text-[#c9bfb0]">{m.opponentName}</td>
-                      <td className="py-2 px-2 text-[#8b8270] hidden sm:table-cell">{m.mode}</td>
-                      <td className={cn("py-2 px-2 text-right font-mono text-xs", m.eloChange >= 0 ? "text-[#8faf7e]" : "text-[#c45a4a]")}>
-                        {m.eloChange >= 0 ? "+" : ""}{m.eloChange}
-                      </td>
+              <div className="overflow-x-auto scrollbar-warm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#ebe2d2] text-left">
+                      <th className="py-1.5 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">Résultat</th>
+                      <th className="py-1.5 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">Adversaire</th>
+                      <th className="py-1.5 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a] hidden sm:table-cell">Mode</th>
+                      <th className="py-1.5 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a] text-right">Elo</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {recentComp.map((m) => (
+                      <tr key={m.id} className="border-b border-[#ebe2d2] hover:bg-[#efe8db] transition-colors">
+                        <td className="py-2 px-2">
+                          <span className={cn("text-xs font-semibold", m.result === "WIN" ? "text-[#7a9b6e]" : "text-[#b5524a]")}>
+                            {m.result === "WIN" ? "Victoire" : "Défaite"}
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-[#6b5f4f]">{m.opponentName}</td>
+                        <td className="py-2 px-2 text-[#9c8e7a] hidden sm:table-cell">{m.mode}</td>
+                        <td className={cn("py-2 px-2 text-right font-mono text-xs", m.eloChange >= 0 ? "text-[#7a9b6e]" : "text-[#b5524a]")}>
+                          {m.eloChange >= 0 ? "+" : ""}{m.eloChange}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </Panel>
 
           {/* How it works */}
-          <Panel className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm">ℹ️</span>
-              <h2 className="text-sm font-semibold text-[#f5efe6]">Comment ça marche</h2>
+          <Panel className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-sm font-semibold text-[#2a2520]">Comment ça marche</h2>
             </div>
-            <div className="space-y-2.5 text-sm text-[#c9bfb0]">
+            <div className="space-y-3 text-sm text-[#6b5f4f]">
               <div className="flex gap-3">
-                <span className="font-mono text-[#ff8c42] shrink-0">01</span>
-                <span>Les deux joueurs voient la <span className="text-[#f5efe6]">même question</span> simultanément.</span>
+                <span className="font-mono text-[#e8823d] font-bold shrink-0">01</span>
+                <span>Les deux joueurs voient la <span className="text-[#2a2520] font-medium">même question</span> simultanément.</span>
               </div>
               <div className="flex gap-3">
-                <span className="font-mono text-[#ff8c42] shrink-0">02</span>
-                <span>Premier à répondre correctement marque <span className="text-[#f5efe6]">1 point</span>.</span>
+                <span className="font-mono text-[#e8823d] font-bold shrink-0">02</span>
+                <span>Premier à répondre correctement marque <span className="text-[#2a2520] font-medium">1 point</span>.</span>
               </div>
               <div className="flex gap-3">
-                <span className="font-mono text-[#ff8c42] shrink-0">03</span>
-                <span>Mauvaise réponse = question <span className="text-[#f5efe6]">verrouillée</span> pour toi.</span>
+                <span className="font-mono text-[#e8823d] font-bold shrink-0">03</span>
+                <span>Mauvaise réponse = question <span className="text-[#2a2520] font-medium">verrouillée</span> pour toi.</span>
               </div>
               <div className="flex gap-3">
-                <span className="font-mono text-[#ff8c42] shrink-0">04</span>
-                <span>Premier à <span className="text-[#f5efe6]">7 points</span> remporte le duel.</span>
+                <span className="font-mono text-[#e8823d] font-bold shrink-0">04</span>
+                <span>Premier à <span className="text-[#2a2520] font-medium">7 points</span> remporte le duel.</span>
               </div>
             </div>
           </Panel>
@@ -239,28 +244,28 @@ export function HomeScreen() {
           {/* Online */}
           <Panel className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-[#8faf7e]" />
+              <Users className="text-[#7a9b6e]" />
               <SectionLabel>Joueurs en ligne</SectionLabel>
             </div>
-            <div className="font-mono text-2xl font-medium text-[#f5efe6]">
+            <div className="font-mono font-bold text-2xl text-[#2a2520]">
               {livePlayers.toLocaleString("fr-FR")}
             </div>
-            <div className="text-xs text-[#8b8270] mt-0.5 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#8faf7e] inline-block" />
+            <div className="text-xs text-[#9c8e7a] mt-0.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#7a9b6e] inline-block" />
               En partie : {Math.floor(livePlayers * 0.36).toLocaleString("fr-FR")}
             </div>
           </Panel>
+
+          <OrnamentDivider />
 
           {/* Top players */}
           <Panel className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-[#8b8270]" />
+                <Trophy className="text-[#9c8e7a]" />
                 <SectionLabel>Top — Compétitif</SectionLabel>
               </div>
-              <button onClick={() => setView("leaderboard")} className="text-[#8b8270] hover:text-[#ff8c42] text-xs">
-                →
-              </button>
+              <button onClick={() => setView("leaderboard")} className="text-[#9c8e7a] hover:text-[#e8823d] text-xs transition-colors">→</button>
             </div>
             <div className="space-y-0.5">
               {top.slice(0, 6).map((p, i) => (
@@ -268,34 +273,39 @@ export function HomeScreen() {
                   key={p.id}
                   onClick={() => setView("leaderboard")}
                   className={cn(
-                    "w-full flex items-center gap-2 px-1.5 py-1.5 rounded text-sm hover:bg-[#252019] transition-colors",
-                    p.isMe && "bg-[rgba(255,140,66,0.06)]",
+                    "w-full flex items-center gap-2 px-1.5 py-1.5 rounded text-sm hover:bg-[#efe8db] transition-colors",
+                    p.isMe && "bg-[rgba(232,130,61,0.04)]",
                   )}
                 >
-                  <span className="font-mono text-xs text-[#8b8270] w-5 text-center">{i + 1}</span>
-                  <span className="flex-1 text-left truncate text-[#f5efe6]">{p.name}</span>
+                  <span className="font-mono text-xs text-[#9c8e7a] w-5 text-center">{i + 1}</span>
+                  <span className="flex-1 text-left truncate text-[#2a2520]">{p.name}</span>
                   <RankBadge elo={p.elo} />
-                  <span className="font-mono text-xs text-[#c9bfb0] w-10 text-right">{p.elo}</span>
+                  <span className="font-mono text-xs text-[#6b5f4f] w-10 text-right">{p.elo}</span>
                 </button>
               ))}
-              {top.length === 0 && (
-                <div className="py-4 text-center text-xs text-[#8b8270]">Chargement…</div>
-              )}
+              {top.length === 0 && <div className="py-4 text-center text-xs text-[#9c8e7a]">Chargement…</div>}
             </div>
           </Panel>
+
+          <OrnamentDivider />
 
           {/* Live event */}
           <Panel className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#c45a4a] inline-block animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#b5524a] inline-block animate-pulse" />
               <SectionLabel>En direct</SectionLabel>
             </div>
-            <div className="text-sm font-medium text-[#f5efe6]">Tournoi hebdo</div>
-            <div className="text-xs text-[#8b8270] mt-0.5">dans 12:34 · 47 inscrits</div>
-            <Btn variant="secondary" size="sm" className="w-full mt-3 justify-center">
+            <div className="text-sm font-semibold text-[#2a2520]">Tournoi hebdo</div>
+            <div className="text-xs text-[#9c8e7a] mt-0.5">dans 12:34 · 47 inscrits</div>
+            <button
+              onClick={() => toast("Inscription au tournoi bientôt disponible")}
+              className="w-full mt-3 h-8 rounded-md border border-[#e8823d] text-[#e8823d] hover:bg-[#e8823d] hover:text-[#faf6f0] text-xs font-medium transition-all"
+            >
               Rejoindre
-            </Btn>
+            </button>
           </Panel>
+
+          <OrnamentDivider />
 
           {/* News */}
           <Panel className="p-4">
@@ -304,10 +314,10 @@ export function HomeScreen() {
             </div>
             <div className="space-y-3">
               {NEWS.map((n) => (
-                <div key={n.title} className="border-l-2 border-[#3a3328] pl-3">
-                  <div className="text-sm font-medium text-[#f5efe6]">{n.emoji} {n.title}</div>
-                  <div className="text-xs text-[#c9bfb0] mt-0.5">{n.desc}</div>
-                  <div className="text-[10px] text-[#8b8270] mt-0.5 font-mono">{n.time}</div>
+                <div key={n.title} className="border-l-2 border-[#ebe2d2] pl-3">
+                  <div className="text-sm font-medium text-[#2a2520]">{n.emoji} {n.title}</div>
+                  <div className="text-xs text-[#6b5f4f] mt-0.5">{n.desc}</div>
+                  <div className="text-[10px] text-[#9c8e7a] mt-0.5 font-mono">{n.time}</div>
                 </div>
               ))}
             </div>

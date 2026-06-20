@@ -53,21 +53,19 @@ export function ClassSelectScreen() {
     setView("duel");
   };
 
-  const accentColor = isTraining ? "#f5deb3" : "#ff8c42";
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <button
         onClick={() => setView("home")}
-        className="flex items-center gap-1.5 text-sm text-[#8b8270] hover:text-[#f5efe6] mb-4"
+        className="flex items-center gap-1.5 text-sm text-[#9c8e7a] hover:text-[#2a2520] mb-4 transition-colors"
       >
-        <ArrowLeft className="w-4 h-4" /> Retour
+        <ArrowLeft /> Retour
       </button>
 
       <PageTitle className="mb-1">
         {isTraining ? "Entraînement" : "Duel compétitif"}
       </PageTitle>
-      <p className="text-sm text-[#c9bfb0] mb-6">
+      <p className="text-sm text-[#6b5f4f] mb-6">
         {isTraining
           ? TRAINING_INFO[trainingExercise]?.desc ?? "Exercice d'entraînement."
           : "Configure ton match et lance le duel. Pur skill."}
@@ -76,17 +74,17 @@ export function ClassSelectScreen() {
       <div className="space-y-5">
         {/* Entraînement : exercice sélectionné */}
         {isTraining && (
-          <Panel className="p-4">
+          <Panel className="p-5">
             <SectionLabel className="mb-2 block">Exercice</SectionLabel>
             <div className="flex items-center gap-3">
               <span className="text-2xl">
                 {trainingExercise === "vsia" ? "🤖" : trainingExercise === "sprint" ? "⚡" : trainingExercise === "category" ? "🎯" : "🧩"}
               </span>
               <div>
-                <div className="text-sm font-semibold text-[#f5deb3]">
+                <div className="text-sm font-semibold text-[#f0b27a]">
                   {TRAINING_INFO[trainingExercise]?.name}
                 </div>
-                <div className="text-xs text-[#8b8270]">{TRAINING_INFO[trainingExercise]?.desc}</div>
+                <div className="text-xs text-[#9c8e7a]">{TRAINING_INFO[trainingExercise]?.desc}</div>
               </div>
             </div>
           </Panel>
@@ -94,47 +92,49 @@ export function ClassSelectScreen() {
 
         {/* Mode (compétitif uniquement) */}
         {!isTraining && (
-          <Panel className="p-4">
+          <Panel className="p-5">
             <SectionLabel className="mb-3 block">Mode</SectionLabel>
-            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#252019] border border-[#4a4133]">
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#efe8db] border border-[#ebe2d2]">
               {COMP_MODES.map((m) => (
                 <button
                   key={m.value}
                   onClick={() => setMode(m.value)}
                   className={cn(
-                    "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                    mode === m.value ? "bg-[#ff8c42] text-[#14110f]" : "text-[#8b8270] hover:text-[#f5efe6] hover:bg-[#2e2820]",
+                    "px-4 py-1.5 rounded text-sm font-medium transition-all",
+                    mode === m.value
+                      ? "bg-[#faf6f0] text-[#e8823d] shadow-sm border border-[#e8823d]/30"
+                      : "text-[#9c8e7a] hover:text-[#2a2520]",
                   )}
                 >
                   {m.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-[#8b8270] mt-2">
+            <p className="text-xs text-[#9c8e7a] mt-2">
               {COMP_MODES.find((m) => m.value === mode)?.desc}
             </p>
           </Panel>
         )}
 
-        {/* Adversaire (compétitif + Vs IA) */}
+        {/* Adversaire */}
         {(!isTraining || trainingExercise === "vsia") && (
-          <Panel className="p-4">
+          <Panel className="p-5">
             <div className="flex items-center justify-between mb-3">
               <SectionLabel>Adversaire</SectionLabel>
               <button
                 onClick={() => setOpp(randomOpponent(opp))}
-                className="flex items-center gap-1.5 text-xs text-[#8b8270] hover:text-[#ff8c42]"
+                className="flex items-center gap-1.5 text-xs text-[#9c8e7a] hover:text-[#e8823d] transition-colors"
               >
-                <RefreshCw className="w-3 h-3" /> Changer
+                <RefreshCw /> Changer
               </button>
             </div>
             <div className="flex items-center gap-3">
-              <div className="grid place-items-center w-9 h-9 rounded-md bg-[#252019] border border-[#4a4133] text-sm font-semibold text-[#f5efe6]">
+              <div className="grid place-items-center w-9 h-9 rounded-md bg-[#efe8db] border border-[#ebe2d2] text-sm font-semibold text-[#2a2520]">
                 {opp.charAt(0)}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-[#f5efe6]">{opp}</div>
-                <div className="text-xs text-[#8b8270]">
+                <div className="text-sm font-medium text-[#2a2520]">{opp}</div>
+                <div className="text-xs text-[#9c8e7a]">
                   {isTraining ? "IA adaptative" : "Adversaire pairé à ton Elo"}
                 </div>
               </div>

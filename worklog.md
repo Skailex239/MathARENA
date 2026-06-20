@@ -452,3 +452,64 @@ Work Log:
 
 Stage Summary:
 - Vérifié Agent Browser + VLM : home 2 colonnes palette chaude + 2 onglets, duel compétitif (warm focus), entraînement beige solo (timer MM:SS, pas d'adversaire), profil warm, classement warm. Mobile pas d'overflow. Lint 0 erreurs. DB reset. Push sur main.
+
+---
+Task ID: 7
+Agent: ui-light-profile-leaderboard (general-purpose)
+Task: Restyle light warm Profile (sidebar + charts + category stats) + Leaderboard (table + filters).
+
+Work Log:
+- Lecture worklog + ui.tsx + globals.css + api.ts + store.ts + divisions.ts pour confirmer palette light warm (#F5EFE6/#FAF6F0/#EFE8DB, orange #E8823D, peach #F0B27A, sage #7A9B6E, brick #B5524A, amber #C9974A) et les primitives Btn/Panel/PageTitle/SectionLabel/StatTile/RankBadge/OrnamentDivider/Tabs/DataTable.
+- Lecture ProfileScreen.tsx + LeaderboardScreen.tsx existants : encore en palette dark warm (#1C1815/#3A3328/#F5EFE6 en tant que texte clair sur fond sombre) — à réécrire intégralement en light warm cream.
+- ui.tsx : extension additive de DataTable avec un prop optionnel `rowClassName?: (row, i) => string | undefined` pour permettre le tint peach top-3 du classement sans casser l'API existante. Aucun autre changement au design system.
+- ProfileScreen.tsx : réécriture complète light warm.
+  * Sidebar desktop 220px : ProfileCard (avatar 64px cercle fond #FCE5D1 + initiales mono #D26F2A, pseudo Helvetica 600 22px brown #2A2520 tracking -0.01em, RankBadge(eloCompetitive), Elo compétitif mono #6B5F4F, barre XP orange #E8823D sur track #EFE8DB) + nav 6 items (Vue générale/Statistiques/Historique/Succès/Amis/Paramètres, 3 premiers réels, autres "bientôt").
+  * Active nav = bordure gauche orange 2px + fond #EFE8DB. Mobile = barre horizontale scrollbar-none avec pills border orange quand actif.
+  * Vue générale : 3 StatTile (Elo/Winrate/Niveau) → OrnamentDivider → Panel LineChart Elo (ligne #E8823D, axes #9C8E7A, grid #EBE2D2, dot #E8823D, activeDot #FCE5D1, tooltip cream) 220px, data = matchs compétitifs triés date asc → OrnamentDivider → Panel "Parties récentes" DataTable (Date/Adversaire/Résultat badge WIN #7A9B6E / LOSE #B5524A / Elo ± sage ou brick / Mode badge) 10 dernières, min 5 lignes (padding "—") → OrnamentDivider → Panel "Précision par catégorie" 8 barres horizontales sage green #7A9B6E, label "estimation" amber.
+  * Stats tab : BarChart wins/losses par mode (wins #7A9B6E / losses #B5524A) + Synthèse 4 tiles.
+  * History tab : DataTable complète (Date/Univers/Adversaire/Résultat/Elo±/Mode) avec UniverseBadge (orange/peach selon universe), min 5 lignes.
+  * EmptyState ("Aucune partie jouée" + Btn outline orange "Jouer" → setView('classselect')) si 0 match.
+  * ComingSoon sobre pour Succès/Amis/Paramètres.
+  * Skeletons light (#FAF6F0 + borders #EBE2D2, pulse).
+  * Tabs (overview/stats/history/achievements/friends/settings) — 3 premiers ont contenu réel.
+- LeaderboardScreen.tsx : réécriture complète light warm.
+  * PageTitle "Classement" + sous-titre "Les meilleurs calculateurs de MathArena" brown secondary.
+  * OrnamentDivider.
+  * Tabs orange (Global/Par mode/Amis) + label "Compétitif · Elo officiel" muted.
+  * Panel overflow-hidden contenant DataTable full-width dense (colonnes # / Joueur [nom + badge "TOI" orange si isMe + "BOT" muted] / Rang [RankBadge] / Elo mono / Niveau mono / V-D sage/brick / Tendance ▲sage ▼brick —muted).
+  * Top 3 : fond peach tint rgba(240,178,122,0.08) via rowClassName.
+  * Ligne isMe : bordure gauche orange 2px + fond très léger via DataTable.highlight (rgba(232,130,61,0.04)).
+  * Min 5 lignes (padding "—" taupe fort #C9BBA0). 11 bots attendus depuis l'API.
+  * Pagination texte muted "← Précédent | Page 1/1 | Suivant →" (disabled, aucun vrai paging backend).
+  * Btn "Nouveau duel" outline orange → setView('classselect').
+  * Note muted avec icône Trophy orange selon filtre.
+  * Skeleton light.
+- Palette strictement respectée : aucun #000/#FFF/bleu/cyan/violet/magenta/néon dans les 2 fichiers. Cards #FAF6F0, borders #EBE2D2, hover #EFE8DB. Radius 6px partout. cn() partout (et imports nettoyés : cn retiré du LeaderboardScreen une fois non utilisé).
+- Lint : `bun run lint` → 0 erreur, 0 warning. Type-check `bunx tsc --noEmit` → 0 erreur sur les 3 fichiers modifiés (ui.tsx, ProfileScreen.tsx, LeaderboardScreen.tsx) ; seules erreurs pré-existantes examples/skills/CombatantPanel (hors scope).
+- Dev server : GET / 200, ✓ Compiled sans erreur runtime. API /api/profile, /api/leaderboard?universe=competitive, /api/matches?limit=50 toutes 200 OK.
+
+Stage Summary:
+- 3 fichiers modifiés : `src/components/matharena/ui.tsx` (extension additive DataTable + prop `rowClassName`), `src/components/matharena/ProfileScreen.tsx` (réécriture complète ~640 lignes), `src/components/matharena/LeaderboardScreen.tsx` (réécriture complète ~280 lignes).
+- Lint OK (0 erreur / 0 warning). Compilation Turbopack OK. Pas d'erreur runtime. TypeScript strict, pas de `any`, français uniquement, 'use client' en tête. Min 5 lignes garanti dans toutes les tables (DataTable récent + historique + classement).
+- Prochaines étapes possibles : ajouter vrai paging côté leaderboard (backend déjà trié par Elo DESC, juste à ajouter offset/limit), brancher stats par catégorie réelles (actuellement estimation statique), et peupler Succès/Amis/Paramètres.
+
+---
+Task ID: light-warm-platform (1-8)
+Agent: main (Z.ai Code)
+Task: Refonte LIGHT MODE warm cream — Chess.com meets premium educational magazine.
+
+Work Log:
+- globals.css : palette LIGHT warm (#F5EFE6 cream base, #FAF6F0 cards, #EFE8DB panels, #2A2520 brown text, #E8823D orange compétitif, #F0B27A peach entraînement). Supprimé tout dark. Ornaments magazine. Animations conservées.
+- layout.tsx : Helvetica Neue (system stack) + JetBrains Mono. Light mode only.
+- divisions.ts : couleurs adaptées light (visibles sur cream).
+- ui.tsx : primitives light warm — Btn OUTLINE (transparent + bordure colorée → fill hover), Panel cream, OrnamentDivider (── • ──), Tabs underline, DataTable no-zebra fine dividers.
+- Navbar light warm (logo orange, liens, bouton Connexion outline orange).
+- Footer minimaliste (une ligne, pas de footer traditionnel multi-colonnes).
+- HomeScreen : 2 colonnes light warm (main play + sidebar) avec ornaments ── • ── entre sections sidebar. Onglets Compétitif/Entraînement. Mode selector tinted. Comment ça marche avec numéros 01-04 mono orange.
+- ClassSelectScreen light warm (outline buttons, mode selector tinted bg).
+- CompetitiveDuelScreen + TrainingDuelScreen : color swap dark → light (bg cream, text brown, orange/peach accents). Fix sed bug (bg-[#2a2520] → bg-[#f5efe6] pour les backgrounds).
+- Subagent 7 : ProfileScreen light warm (sidebar + stat cards + LineChart + category stats sage green) + LeaderboardScreen light warm (filtres + table dense + top 3 peach tint).
+- Installé @phosphor-icons/react puis revenu à lucide-react (noms d'export phosphor non compatibles).
+
+Stage Summary:
+- Vérifié Agent Browser + VLM : home light cream 2 colonnes + outline buttons + ornaments, duel compétitif light (cream bg, timer+question héros, adversaire caché, panneaux orange), entraînement light peach solo (MM:SS), profil + classement light warm. Lint 0 erreurs. DB reset. Push sur main.

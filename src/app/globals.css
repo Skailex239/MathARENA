@@ -4,9 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   MathArena — Design System v3 (Warm Dark)
-   Chess.com meets a warm cozy library, with esports tension.
-   Orange / beige / cream on warm dark brown.
+   MathArena — Design System v4 (Warm LIGHT Mode)
+   Chess.com meets a premium educational magazine, on warm cream.
+   Light mode only. Orange (compétitif) / Golden peach (entraînement).
    ============================================================ */
 
 @theme inline {
@@ -41,124 +41,155 @@
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
-  --color-highlight: var(--highlight);
+  --color-orange: var(--orange);
+  --color-orange-hover: var(--orange-hover);
+  --color-orange-tint: var(--orange-tint);
+  --color-peach: var(--peach);
+  --color-peach-hover: var(--peach-hover);
+  --color-peach-tint: var(--peach-tint);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 
   --color-sidebar: var(--surface-1);
   --color-sidebar-foreground: var(--text-primary);
-  --color-sidebar-primary: var(--primary);
-  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-primary: var(--orange);
+  --color-sidebar-primary-foreground: var(--surface-1);
   --color-sidebar-accent: var(--surface-hover);
   --color-sidebar-accent-foreground: var(--text-primary);
-  --color-sidebar-border: var(--border);
-  --color-sidebar-ring: var(--ring);
+  --color-sidebar-border: var(--border-subtle);
+  --color-sidebar-ring: var(--orange);
 
-  --color-chart-1: #ff8c42;
-  --color-chart-2: #6baa75;
-  --color-chart-3: #e5a847;
-  --color-chart-4: #d9534f;
-  --color-chart-5: #b8ae9e;
+  --color-chart-1: #e8823d;
+  --color-chart-2: #7a9b6e;
+  --color-chart-3: #c9974a;
+  --color-chart-4: #b5524a;
+  --color-chart-5: #9c8e7a;
 
   --radius-sm: 4px;
   --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
 }
 
 :root {
-  /* backgrounds — warm dark brown */
-  --background: #14110f;
-  --foreground: #f5efe6;
+  /* backgrounds — warm cream light */
+  --background: #f5efe6;       /* warm cream main */
+  --foreground: #2a2520;       /* deep warm brown */
 
-  --card: #1c1815;
-  --card-foreground: #f5efe6;
-  --popover: #1c1815;
-  --popover-foreground: #f5efe6;
+  --card: #faf6f0;             /* slightly lighter cream */
+  --card-foreground: #2a2520;
+  --popover: #faf6f0;
+  --popover-foreground: #2a2520;
 
-  --primary: #ff8c42;       /* warm orange */
-  --primary-foreground: #14110f;
+  --primary: #e8823d;          /* rich orange (compétitif) */
+  --primary-foreground: #faf6f0;
 
-  --secondary: #252019;
-  --secondary-foreground: #f5efe6;
+  --secondary: #efe8db;        /* slightly darker cream */
+  --secondary-foreground: #2a2520;
 
-  --muted: #252019;
-  --muted-foreground: #b8ae9e;
+  --muted: #efe8db;
+  --muted-foreground: #9c8e7a; /* soft warm taupe */
 
-  --accent: #2e2820;
-  --accent-foreground: #f5efe6;
+  --accent: #e8dfcd;           /* hover cream */
+  --accent-foreground: #2a2520;
 
-  --destructive: #d9534f;   /* brick red */
-  --destructive-foreground: #f5efe6;
+  --destructive: #b5524a;      /* brick red */
+  --destructive-foreground: #faf6f0;
 
-  --border: #4a4133;
-  --input: #252019;
-  --ring: #ff8c42;
+  --border: #dcd0bc;           /* default border */
+  --input: #efe8db;
+  --ring: #e8823d;
 
-  --surface-1: #1c1815;
-  --surface-2: #252019;
-  --surface-hover: #2e2820;
+  --surface-1: #faf6f0;
+  --surface-2: #efe8db;
+  --surface-hover: #e8dfcd;
 
-  --border-subtle: #3a3328;
-  --border-strong: #5c5142;
+  --border-subtle: #ebe2d2;
+  --border-strong: #c9bba0;
 
-  --text-primary: #f5efe6;
-  --text-secondary: #b8ae9e;
-  --text-muted: #7a7164;
+  --text-primary: #2a2520;
+  --text-secondary: #6b5f4f;
+  --text-muted: #9c8e7a;
 
-  --success: #6baa75;       /* soft green */
-  --danger: #d9534f;        /* brick red */
-  --warning: #e5a847;       /* amber */
-  --highlight: #f5deb3;     /* golden beige */
+  --success: #7a9b6e;          /* sage green */
+  --danger: #b5524a;           /* brick red */
+  --warning: #c9974a;          /* amber */
 
-  --radius: 8px;
+  --orange: #e8823d;
+  --orange-hover: #d26f2a;
+  --orange-tint: #fce5d1;
+  --peach: #f0b27a;
+  --peach-hover: #e5a164;
+  --peach-tint: #faead8;
+
+  --radius: 6px;
 }
 
 @layer base {
   * {
     @apply border-border;
-    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+    outline-color: color-mix(in oklab, var(--ring) 40%, transparent);
   }
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
     @apply bg-background text-foreground;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "cv01", "ss01";
   }
   ::selection {
-    background: rgba(255, 140, 66, 0.3);
-    color: #fff;
+    background: rgba(232, 130, 61, 0.2);
+    color: #2a2520;
   }
 }
 
 /* ============================================================
-   Utilities — warm, subtle
+   Utilities — warm light, subtle
    ============================================================ */
 @layer utilities {
   .scrollbar-warm::-webkit-scrollbar { width: 8px; height: 8px; }
   .scrollbar-warm::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-warm::-webkit-scrollbar-thumb {
-    background: #4a4133;
+    background: #dcd0bc;
     border-radius: 999px;
   }
-  .scrollbar-warm::-webkit-scrollbar-thumb:hover { background: #5c5142; }
+  .scrollbar-warm::-webkit-scrollbar-thumb:hover { background: #c9bba0; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
-  .warm-glow { box-shadow: 0 0 40px rgba(255, 140, 66, 0.08); }
-  .warm-glow-strong { box-shadow: 0 0 60px rgba(255, 140, 66, 0.18); }
+  .warm-glow { box-shadow: 0 0 24px rgba(232, 130, 61, 0.06); }
+  .warm-glow-strong { box-shadow: 0 0 40px rgba(232, 130, 61, 0.12); }
 
-  .input-correct { border-color: #6baa75 !important; }
-  .input-incorrect { border-color: #d9534f !important; }
-  .input-critical { border-color: #f5deb3 !important; }
+  .input-correct { border-color: #7a9b6e !important; }
+  .input-incorrect { border-color: #b5524a !important; }
+  .input-critical { border-color: #f0b27a !important; }
 }
 
 /* ============================================================
-   Animations — rich but short
+   Ornaments — magazine style
+   ============================================================ */
+@layer utilities {
+  .ornament-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #c9bba0;
+  }
+  .ornament-divider::before,
+  .ornament-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #ebe2d2;
+  }
+}
+
+/* ============================================================
+   Animations — moderate, fluid (300-400ms)
    ============================================================ */
 @layer utilities {
   @keyframes ma-fade-in {
@@ -181,26 +212,26 @@
   .animate-shake { animation: ma-shake 0.3s ease-in-out; }
 
   @keyframes ma-flash-green {
-    0% { background-color: rgba(107, 170, 117, 0.25); }
+    0% { background-color: rgba(122, 155, 110, 0.2); }
     100% { background-color: transparent; }
   }
   .animate-flash-green { animation: ma-flash-green 0.2s ease-out; }
 
   @keyframes ma-flash-red {
-    0% { background-color: rgba(217, 83, 79, 0.25); }
+    0% { background-color: rgba(181, 82, 74, 0.2); }
     100% { background-color: transparent; }
   }
   .animate-flash-red { animation: ma-flash-red 0.3s ease-out; }
 
   @keyframes ma-flash-gold {
-    0% { background-color: rgba(245, 222, 179, 0.3); }
+    0% { background-color: rgba(240, 178, 122, 0.25); }
     100% { background-color: transparent; }
   }
   .animate-flash-gold { animation: ma-flash-gold 0.3s ease-out; }
 
   @keyframes ma-glow-pulse {
-    0%, 100% { box-shadow: 0 0 40px rgba(255, 140, 66, 0.08); }
-    50% { box-shadow: 0 0 60px rgba(255, 140, 66, 0.2); }
+    0%, 100% { box-shadow: 0 0 40px rgba(232, 130, 61, 0.08); }
+    50% { box-shadow: 0 0 60px rgba(232, 130, 61, 0.16); }
   }
   .animate-glow-pulse { animation: ma-glow-pulse 0.8s ease-in-out; }
 

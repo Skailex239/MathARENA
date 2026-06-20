@@ -135,7 +135,7 @@ export function TrainingDuelScreen() {
 
   const timePct = (timeLeftMs / SPRINT_DURATION_MS) * 100;
   const urgent = timeLeftMs <= 10000 && timeLeftMs > 0;
-  const timerColor = urgent ? "#c45a4a" : timeLeftMs <= 30000 ? "#d9a441" : "#f5deb3";
+  const timerColor = urgent ? "#c45a4a" : timeLeftMs <= 30000 ? "#d9a441" : "#f0b27a";
   const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
   const avgSpeed = correct > 0 ? (totalTimeMs / correct / 1000).toFixed(1) : "—";
 
@@ -143,19 +143,19 @@ export function TrainingDuelScreen() {
     ? "border-[#c45a4a] animate-shake"
     : flash === "correct"
       ? "border-[#8faf7e]"
-      : "border-[#4a4133] focus:border-[#f5deb3]";
+      : "border-[#dcd0bc] focus:border-[#f0b27a]";
 
   return (
-    <div className="h-screen flex flex-col bg-[#14110f] overflow-hidden relative">
+    <div className="h-screen flex flex-col bg-[#f5efe6] overflow-hidden relative">
       {/* Discrete icons */}
       <button
         onClick={() => { if (confirm("Quitter l'entraînement ?")) { endMatch(); setView("home"); } }}
-        className="absolute top-3 left-3 z-30 text-[#8b8270] hover:text-[#f5efe6] opacity-40 hover:opacity-100 transition-opacity text-lg"
+        className="absolute top-3 left-3 z-30 text-[#9c8e7a] hover:text-[#2a2520] opacity-40 hover:opacity-100 transition-opacity text-lg"
       >
         ✕
       </button>
       <div className="absolute top-3 right-3 z-30 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
-        <span className="text-[#8b8270] text-sm font-mono">🎯 Entraînement</span>
+        <span className="text-[#9c8e7a] text-sm font-mono">🎯 Entraînement</span>
       </div>
 
       {/* Main focus */}
@@ -168,7 +168,7 @@ export function TrainingDuelScreen() {
           >
             {fmtDuration(timeLeftMs)}
           </div>
-          <div className="w-48 sm:w-64 h-1 rounded-full bg-[#252019] overflow-hidden">
+          <div className="w-48 sm:w-64 h-1 rounded-full bg-[#efe8db] overflow-hidden">
             <div
               className="h-full transition-[width] duration-100 ease-linear rounded-full"
               style={{ width: `${timePct}%`, background: timerColor }}
@@ -177,7 +177,7 @@ export function TrainingDuelScreen() {
         </div>
 
         {/* Metadata */}
-        <div className="text-xs font-medium uppercase tracking-wider text-[#8b8270] text-center">
+        <div className="text-xs font-medium uppercase tracking-wider text-[#9c8e7a] text-center">
           Question {answered + 1} · {CATEGORY_LABEL[question.category]} · {DIFFICULTY_LABEL[question.difficulty]}
         </div>
 
@@ -189,15 +189,15 @@ export function TrainingDuelScreen() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
-            className="rounded-2xl border border-[rgba(245,222,179,0.2)] bg-gradient-to-b from-[#1c1815] to-[#252019] px-8 py-10 sm:px-14 sm:py-12 max-w-[680px] w-full text-center"
-            style={{ boxShadow: "0 0 40px rgba(245,222,179,0.08)" }}
+            className="rounded-2xl border border-[rgba(240,178,122,0.2)] bg-gradient-to-b from-[#faf6f0] to-[#efe8db] px-8 py-10 sm:px-14 sm:py-12 max-w-[680px] w-full text-center"
+            style={{ boxShadow: "0 0 40px rgba(240,178,122,0.08)" }}
           >
-            <div className="font-mono font-bold text-4xl sm:text-6xl xl:text-7xl text-[#f5efe6]">
+            <div className="font-mono font-bold text-4xl sm:text-6xl xl:text-7xl text-[#2a2520]">
               {question.text.endsWith("?") ? (
                 question.text
               ) : (
                 <>
-                  {question.text} = <span className="text-[#8b8270]">?</span>
+                  {question.text} = <span className="text-[#9c8e7a]">?</span>
                 </>
               )}
             </div>
@@ -218,18 +218,18 @@ export function TrainingDuelScreen() {
             placeholder="—"
             autoComplete="off"
             className={cn(
-              "flex-1 text-center font-mono font-bold text-3xl sm:text-5xl bg-[#252019] border-2 rounded-xl px-5 py-4 outline-none transition-colors",
+              "flex-1 text-center font-mono font-bold text-3xl sm:text-5xl bg-[#efe8db] border-2 rounded-xl px-5 py-4 outline-none transition-colors",
               inputBorderClass,
             )}
           />
           <button
             type="submit"
-            className="shrink-0 px-4 py-4 rounded-xl text-sm font-medium text-[#8b8270] border border-[#4a4133] hover:text-[#f5deb3] hover:border-[#f5deb3] hover:bg-[#2e2820] transition-colors"
+            className="shrink-0 px-4 py-4 rounded-xl text-sm font-medium text-[#9c8e7a] border border-[#dcd0bc] hover:text-[#f0b27a] hover:border-[#f0b27a] hover:bg-[#e8dfcd] transition-colors"
           >
             Valider
           </button>
         </form>
-        <div className="text-[11px] font-medium uppercase tracking-wider text-[#8b8270]">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-[#9c8e7a]">
           Validation auto · ⌨ Entrée · Valider
         </div>
       </main>
@@ -238,22 +238,22 @@ export function TrainingDuelScreen() {
       {!gameOver && (
         <div className="shrink-0 px-4 pb-4">
           <div className="mx-auto max-w-[680px]">
-            <div className="rounded-[10px] border border-[#4a4133] bg-[#1c1815] p-4 flex items-center gap-4">
+            <div className="rounded-[10px] border border-[#dcd0bc] bg-[#faf6f0] p-4 flex items-center gap-4">
               <div className="flex items-center gap-2.5">
-                <div className="grid place-items-center w-8 h-8 rounded-full bg-[#252019] border border-[#4a4133] text-sm font-semibold text-[#f5efe6]">J</div>
+                <div className="grid place-items-center w-8 h-8 rounded-full bg-[#efe8db] border border-[#dcd0bc] text-sm font-semibold text-[#2a2520]">J</div>
                 <div>
-                  <div className="text-sm font-semibold text-[#f5efe6]">Toi</div>
-                  <div className="text-xs text-[#8b8270]">Entraînement · {TRAINING_LABEL[trainingExercise]}</div>
+                  <div className="text-sm font-semibold text-[#2a2520]">Toi</div>
+                  <div className="text-xs text-[#9c8e7a]">Entraînement · {TRAINING_LABEL[trainingExercise]}</div>
                 </div>
               </div>
               <div className="flex-1" />
               <div className="text-center">
-                <div className="text-[10px] uppercase tracking-wider text-[#8b8270]">Réussies</div>
-                <div className="font-mono text-lg text-[#f5deb3]">{correct}</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#9c8e7a]">Réussies</div>
+                <div className="font-mono text-lg text-[#f0b27a]">{correct}</div>
               </div>
               <div className="text-center">
-                <div className="text-[10px] uppercase tracking-wider text-[#8b8270]">Précision</div>
-                <div className="font-mono text-lg text-[#f5efe6]">{accuracy}%</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#9c8e7a]">Précision</div>
+                <div className="font-mono text-lg text-[#2a2520]">{accuracy}%</div>
               </div>
             </div>
           </div>
@@ -262,14 +262,14 @@ export function TrainingDuelScreen() {
           <div className="lg:hidden mt-3 mx-auto max-w-[680px] grid grid-cols-3 gap-1.5">
             {["1","2","3","4","5","6","7","8","9"].map((k) => (
               <button key={k} type="button" onClick={() => setInput(input + k)}
-                className="h-14 rounded-md bg-[#252019] border border-[#4a4133] text-xl font-mono font-medium text-[#f5efe6] active:bg-[#f5deb3] active:text-[#14110f] transition-colors">{k}</button>
+                className="h-14 rounded-md bg-[#efe8db] border border-[#dcd0bc] text-xl font-mono font-medium text-[#2a2520] active:bg-[#f0b27a] active:text-[#2a2520] transition-colors">{k}</button>
             ))}
             <button type="button" onClick={() => setInput(input.slice(0, -1))}
-              className="h-14 rounded-md bg-[#252019] border border-[#4a4133] text-xl text-[#c9bfb0] active:bg-[#2e2820] transition-colors">←</button>
+              className="h-14 rounded-md bg-[#efe8db] border border-[#dcd0bc] text-xl text-[#c9bfb0] active:bg-[#e8dfcd] transition-colors">←</button>
             <button type="button" onClick={() => setInput(input + "0")}
-              className="h-14 rounded-md bg-[#252019] border border-[#4a4133] text-xl font-mono font-medium text-[#f5efe6] active:bg-[#f5deb3] active:text-[#14110f] transition-colors">0</button>
+              className="h-14 rounded-md bg-[#efe8db] border border-[#dcd0bc] text-xl font-mono font-medium text-[#2a2520] active:bg-[#f0b27a] active:text-[#2a2520] transition-colors">0</button>
             <button type="button" onClick={submit}
-              className="h-14 rounded-md bg-[#f5deb3] border border-[#f5deb3] text-xl text-[#14110f] font-semibold active:bg-[#e5c99a] transition-colors">✓</button>
+              className="h-14 rounded-md bg-[#f0b27a] border border-[#f0b27a] text-xl text-[#2a2520] font-semibold active:bg-[#e5c99a] transition-colors">✓</button>
           </div>
         </div>
       )}
@@ -280,54 +280,54 @@ export function TrainingDuelScreen() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 z-50 grid place-items-center bg-[rgba(0,0,0,0.7)] p-4"
+            className="absolute inset-0 z-50 grid place-items-center bg-[rgba(42,37,32,0.4)] p-4"
           >
             <motion.div
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4, ease: [0, 0, 0.2, 1] }}
-              className="w-full max-w-md rounded-2xl border border-[#4a4133] bg-[#1c1815] p-6"
+              className="w-full max-w-md rounded-2xl border border-[#dcd0bc] bg-[#faf6f0] p-6"
             >
               <div className="text-center mb-5">
-                <div className="font-display font-extrabold text-3xl text-[#f5deb3]">Entraînement terminé</div>
-                <div className="mt-1 text-sm text-[#8b8270]">{TRAINING_LABEL[trainingExercise]}</div>
+                <div className="font-display font-extrabold text-3xl text-[#f0b27a]">Entraînement terminé</div>
+                <div className="mt-1 text-sm text-[#9c8e7a]">{TRAINING_LABEL[trainingExercise]}</div>
               </div>
               <div className="space-y-2.5 mb-5">
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
                   <span className="text-sm text-[#c9bfb0]">Questions réussies</span>
-                  <span className="font-mono text-lg text-[#f5efe6]">{correct}</span>
+                  <span className="font-mono text-lg text-[#2a2520]">{correct}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
                   <span className="text-sm text-[#c9bfb0]">Précision</span>
-                  <span className="font-mono text-[#f5efe6]">{accuracy}% ({correct}/{answered})</span>
+                  <span className="font-mono text-[#2a2520]">{accuracy}% ({correct}/{answered})</span>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
                   <span className="text-sm text-[#c9bfb0]">Vitesse moyenne</span>
-                  <span className="font-mono text-[#f5efe6]">{avgSpeed}s</span>
+                  <span className="font-mono text-[#2a2520]">{avgSpeed}s</span>
                 </div>
                 {savedInfo && (
-                  <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
+                  <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
                     <span className="text-sm text-[#c9bfb0]">XP gagné</span>
                     <span className="font-mono text-[#d9a441]">+{savedInfo.xpGained}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm text-[#c9bfb0]">Durée</span>
-                  <span className="font-mono text-[#f5efe6]">2:00</span>
+                  <span className="font-mono text-[#2a2520]">2:00</span>
                 </div>
               </div>
               <div className="space-y-2">
                 <button onClick={() => setView("classselect")}
-                  className="w-full py-2.5 rounded-lg bg-[#f5deb3] hover:bg-[#e5c99a] text-[#14110f] font-semibold text-sm transition-colors">
+                  className="w-full py-2.5 rounded-lg bg-[#f0b27a] hover:bg-[#e5c99a] text-[#2a2520] font-semibold text-sm transition-colors">
                   Recommencer
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={() => setView("profile")}
-                    className="py-2 rounded-lg border border-[#4a4133] text-[#c9bfb0] hover:text-[#f5efe6] hover:border-[#5c5142] text-sm transition-colors">
+                    className="py-2 rounded-lg border border-[#dcd0bc] text-[#c9bfb0] hover:text-[#2a2520] hover:border-[#c9bba0] text-sm transition-colors">
                     📊 Analyse
                   </button>
                   <button onClick={() => setView("home")}
-                    className="py-2 rounded-lg border border-[#4a4133] text-[#c9bfb0] hover:text-[#f5efe6] hover:border-[#5c5142] text-sm transition-colors">
+                    className="py-2 rounded-lg border border-[#dcd0bc] text-[#c9bfb0] hover:text-[#2a2520] hover:border-[#c9bba0] text-sm transition-colors">
                     Accueil
                   </button>
                 </div>

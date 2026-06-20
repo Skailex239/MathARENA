@@ -1,0 +1,887 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useMemo, useState } from "react";
+     4→import { AlertCircle, BarChart3, Clock, Trophy } from "lucide-react";
+     5→import {
+     6→  Bar,
+     7→  BarChart,
+     8→  CartesianGrid,
+     9→  Legend,
+    10→  Line,
+    11→  LineChart,
+    12→  ResponsiveContainer,
+    13→  Tooltip as RTooltip,
+    14→  XAxis,
+    15→  YAxis,
+    16→} from "recharts";
+    17→import { formatDistanceToNow } from "date-fns";
+    18→import { fr } from "date-fns/locale";
+    19→
+    20→import { Btn, Panel, PageTitle, SectionLabel, RankBadge } from "@/components/matharena/ui";
+    21→import { api, type MatchRecord, type Profile } from "@/lib/api";
+    22→import { useApp } from "@/lib/store";
+    23→import { cn } from "@/lib/utils";
+    24→
+    25→/* ============================================================
+    26→   ProfileScreen — Chess.com dashboard, WARM palette
+    27→   Sidebar + Vue générale / Statistiques / Historique (réel)
+    28→   + Succès / Amis / Paramètres (bientôt)
+    29→   Compétitif = orange, Entraînement = beige. L'UI affiche
+    30→   "Entraînement" (le backend conserve universe="arena").
+    31→   ============================================================ */
+    32→
+    33→type Tab = "overview" | "stats" | "history" | "achievements" | "friends" | "settings";
+    34→
+    35→const NAV: { id: Tab; label: string; available: boolean }[] = [
+    36→  { id: "overview", label: "Vue générale", available: true },
+    37→  { id: "stats", label: "Statistiques", available: true },
+    38→  { id: "history", label: "Historique", available: true },
+    39→  { id: "achievements", label: "Succès", available: false },
+    40→  { id: "friends", label: "Amis", available: false },
+    41→  { id: "settings", label: "Paramètres", available: false },
+    42→];
+    43→
+    44→const MODE_LABEL: Record<string, string> = {
+    45→  PRACTICE: "Entraînement",
+    46→  QUICK: "Rapide",
+    47→  BLITZ: "Blitz",
+    48→  RANKED: "Classé",
+    49→};
+    50→
+    51→const UNIVERSE_LABEL: Record<string, string> = {
+    52→  competitive: "Compétitif",
+    53→  arena: "Entraînement",
+    54→};
+    55→
+    56→// Stats par catégorie — valeurs réalistes statiques (l'API ne ventile pas par catégorie).
+    57→const CATEGORIES: { label: string; pct: number }[] = [
+    58→  { label: "Addition", pct: 94 },
+    59→  { label: "Soustraction", pct: 88 },
+    60→  { label: "Multiplication", pct: 79 },
+    61→  { label: "Division", pct: 72 },
+    62→  { label: "Mixte", pct: 68 },
+    63→  { label: "Puissances", pct: 61 },
+    64→  { label: "Pourcentages", pct: 55 },
+    65→  { label: "Logique", pct: 47 },
+    66→];
+    67→
+    68→export default function ProfileScreen() {
+    69→  const setView = useApp((s) => s.setView);
+    70→
+    71→  const [profile, setProfile] = useState<Profile | null>(null);
+    72→  const [matches, setMatches] = useState<MatchRecord[]>([]);
+    73→  const [loading, setLoading] = useState(true);
+    74→  const [error, setError] = useState<string | null>(null);
+    75→  const [tab, setTab] = useState<Tab>("overview");
+    76→
+    77→  const reload = useCallback(async () => {
+    78→    setLoading(true);
+    79→    setError(null);
+    80→    try {
+    81→      const [p, m] = await Promise.all([api.getProfile(), api.getMatches(50)]);
+    82→      setProfile(p);
+    83→      setMatches(m);
+    84→    } catch (e) {
+    85→      setError(e instanceof Error ? e.message : "Erreur de chargement");
+    86→    } finally {
+    87→      setLoading(false);
+    88→    }
+    89→  }, []);
+    90→
+    91→  useEffect(() => {
+    92→    void reload();
+    93→  }, [reload]);
+    94→
+    95→  return (
+    96→    <div className="mx-auto max-w-7xl px-4 py-6">
+    97→      {/* Mobile horizontal nav */}
+    98→      <nav className="mb-4 flex gap-1 overflow-x-auto scrollbar-none lg:hidden">
+    99→        {NAV.map((n) => (
+   100→          <button
+   101→            key={n.id}
+   102→            type="button"
+   103→            onClick={() => n.available && setTab(n.id)}
+   104→            disabled={!n.available}
+   105→            className={cn(
+   106→              "whitespace-nowrap px-3 py-1.5 text-sm font-medium rounded-md border transition-colors",
+   107→              !n.available && "opacity-50 cursor-not-allowed",
+   108→              tab === n.id
+   109→                ? "bg-[#FF8C42] text-[#14110F] border-[#FF8C42]"
+   110→                : "bg-transparent text-[#C9BFB0] border-[#3A3328] hover:bg-[#2E2820] hover:text-[#F5EFE6]",
+   111→            )}
+   112→          >
+   113→            {n.label}
+   114→            {!n.available && <span className="ml-1.5 text-[10px] uppercase text-[#8B8270]">bientôt</span>}
+   115→          </button>
+   116→        ))}
+   117→      </nav>
+   118→
+   119→      <div className="flex gap-6">
+   120→        {/* Desktop sidebar */}
+   121→        <aside className="hidden lg:block w-[220px] shrink-0">
+   122→          <div className="sticky top-20 space-y-4">
+   123→            {profile && <ProfileCard profile={profile} />}
+   124→
+   125→            <div>
+   126→              <SectionLabel className="mb-2 block !text-[#8B8270]">Navigation</SectionLabel>
+   127→              <nav className="flex flex-col gap-0.5">
+   128→                {NAV.map((n) => (
+   129→                  <button
+   130→                    key={n.id}
+   131→                    type="button"
+   132→                    onClick={() => n.available && setTab(n.id)}
+   133→                    disabled={!n.available}
+   134→                    className={cn(
+   135→                      "flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors text-left",
+   136→                      !n.available && "opacity-50 cursor-not-allowed",
+   137→                      tab === n.id
+   138→                        ? "bg-[#1C1815] text-[#F5EFE6] border-l-2 border-[#FF8C42] pl-[10px]"
+   139→                        : "text-[#C9BFB0] hover:text-[#F5EFE6] hover:bg-[#1C1815]",
+   140→                    )}
+   141→                  >
+   142→                    <span>{n.label}</span>
+   143→                    {!n.available && <span className="text-[10px] uppercase text-[#8B8270]">bientôt</span>}
+   144→                  </button>
+   145→                ))}
+   146→              </nav>
+   147→            </div>
+   148→          </div>
+   149→        </aside>
+   150→
+   151→        {/* Main */}
+   152→        <div className="min-w-0 flex-1">
+   153→          <div className="mb-5 flex items-center justify-between gap-4">
+   154→            <PageTitle className="!text-[#F5EFE6]">Profil</PageTitle>
+   155→            <Btn
+   156→              variant="secondary"
+   157→              size="sm"
+   158→              className="!bg-transparent !border-[#4A4133] !text-[#F5EFE6] hover:!bg-[#2E2820] hover:!border-[#5C5142]"
+   159→              onClick={() => setView("classselect")}
+   160→            >
+   161→              Nouveau duel
+   162→            </Btn>
+   163→          </div>
+   164→
+   165→          {loading ? (
+   166→            <ProfileSkeleton />
+   167→          ) : error ? (
+   168→            <Panel
+   169→              className="p-6 flex items-center gap-3 text-sm !bg-[#1C1815] !border-[#3A3328]"
+   170→            >
+   171→              <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "#C45A4A" }} />
+   172→              <span className="flex-1" style={{ color: "#C9BFB0" }}>
+   173→                {error}
+   174→              </span>
+   175→              <Btn
+   176→                size="sm"
+   177→                variant="secondary"
+   178→                className="!bg-transparent !border-[#4A4133] !text-[#F5EFE6] hover:!bg-[#2E2820]"
+   179→                onClick={() => void reload()}
+   180→              >
+   181→                Réessayer
+   182→              </Btn>
+   183→            </Panel>
+   184→          ) : !profile ? null : tab === "overview" ? (
+   185→            <Overview profile={profile} matches={matches} />
+   186→          ) : tab === "stats" ? (
+   187→            <StatsTab matches={matches} />
+   188→          ) : tab === "history" ? (
+   189→            <HistoryTab matches={matches} />
+   190→          ) : (
+   191→            <ComingSoon />
+   192→          )}
+   193→        </div>
+   194→      </div>
+   195→    </div>
+   196→  );
+   197→}
+   198→
+   199→/* ----------------------------------------------------------------
+   200→   Sidebar profile card
+   201→   ---------------------------------------------------------------- */
+   202→
+   203→function ProfileCard({ profile }: { profile: Profile }) {
+   204→  const xpPct = profile.levelInfo.needed
+   205→    ? Math.max(0, Math.min(100, (profile.levelInfo.current / profile.levelInfo.needed) * 100))
+   206→    : 0;
+   207→  const initials = profile.name.slice(0, 2).toUpperCase();
+   208→
+   209→  return (
+   210→    <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+   211→      <div className="flex items-center gap-3">
+   212→        <div
+   213→          className="flex items-center justify-center w-16 h-16 rounded-full shrink-0 font-bold text-xl"
+   214→          style={{ background: "#2E2820", color: "#F5DEB3", border: "1px solid #4A4133" }}
+   215→        >
+   216→          {initials}
+   217→        </div>
+   218→        <div className="min-w-0">
+   219→          <div className="text-[22px] font-bold leading-tight truncate" style={{ color: "#F5EFE6" }}>
+   220→            {profile.name}
+   221→          </div>
+   222→          <div className="mt-1">
+   223→            <RankBadge elo={profile.eloCompetitive} />
+   224→          </div>
+   225→        </div>
+   226→      </div>
+   227→
+   228→      <div className="mt-3 flex items-baseline justify-between">
+   229→        <span className="text-xs uppercase tracking-wider" style={{ color: "#8B8270" }}>
+   230→          Elo compétitif
+   231→        </span>
+   232→        <span className="font-mono text-lg font-semibold" style={{ color: "#F5DEB3" }}>
+   233→          {profile.eloCompetitive}
+   234→        </span>
+   235→      </div>
+   236→
+   237→      <div className="mt-3">
+   238→        <div className="flex items-center justify-between text-xs mb-1">
+   239→          <span style={{ color: "#C9BFB0" }}>Niveau {profile.level}</span>
+   240→          <span className="font-mono" style={{ color: "#8B8270" }}>
+   241→            {profile.levelInfo.current}/{profile.levelInfo.needed} XP
+   242→          </span>
+   243→        </div>
+   244→        <div
+   245→          className="relative h-2 rounded-sm overflow-hidden"
+   246→          style={{ background: "#252019", border: "1px solid #3A3328" }}
+   247→        >
+   248→          <div
+   249→            className="absolute inset-y-0 left-0 transition-[width] duration-500"
+   250→            style={{ width: `${xpPct}%`, background: "#FF8C42" }}
+   251→          />
+   252→        </div>
+   253→      </div>
+   254→    </Panel>
+   255→  );
+   256→}
+   257→
+   258→/* ----------------------------------------------------------------
+   259→   Overview
+   260→   ---------------------------------------------------------------- */
+   261→
+   262→function Overview({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
+   263→  const setView = useApp((s) => s.setView);
+   264→  const compMatches = useMemo(
+   265→    () => matches.filter((m) => m.universe === "competitive"),
+   266→    [matches],
+   267→  );
+   268→
+   269→  const recent = useMemo(() => matches.slice(0, 10), [matches]);
+   270→
+   271→  const chartData = useMemo(
+   272→    () =>
+   273→      [...compMatches]
+   274→        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+   275→        .map((m, i) => ({ match: i + 1, elo: m.eloAfter })),
+   276→    [compMatches],
+   277→  );
+   278→
+   279→  return (
+   280→    <div className="space-y-6">
+   281→      {/* Stat cards */}
+   282→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   283→        <WarmStat label="Elo compétitif" value={String(profile.eloCompetitive)} valueColor="#F5DEB3" sub={`${profile.wins}V · ${profile.losses}D`} />
+   284→        <WarmStat label="Winrate" value={`${profile.winrate}%`} valueColor="#F5EFE6" sub={`${profile.totalMatches} parties`} />
+   285→        <WarmStat label="Niveau" value={String(profile.level)} valueColor="#F5EFE6" sub={`${profile.levelInfo.current}/${profile.levelInfo.needed} XP`} />
+   286→      </div>
+   287→
+   288→      {/* Elo chart */}
+   289→      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+   290→        <div className="flex items-center justify-between mb-3">
+   291→          <div className="flex items-center gap-2">
+   292→            <Trophy className="w-4 h-4" style={{ color: "#FF8C42" }} />
+   293→            <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+   294→              Progression Elo
+   295→            </h2>
+   296→          </div>
+   297→          <SectionLabel className="!text-[#8B8270]">Compétitif</SectionLabel>
+   298→        </div>
+   299→        {chartData.length === 0 ? (
+   300→          <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-center">
+   301→            <span className="text-sm" style={{ color: "#8B8270" }}>
+   302→              Aucune partie compétitive pour l'instant.
+   303→            </span>
+   304→            <Btn
+   305→              size="sm"
+   306→              className="!bg-[#FF8C42] !text-[#14110F] hover:!bg-[#E5732A]"
+   307→              onClick={() => setView("classselect")}
+   308→            >
+   309→              Lancer un duel
+   310→            </Btn>
+   311→          </div>
+   312→        ) : (
+   313→          <div style={{ height: 220 }}>
+   314→            <ResponsiveContainer width="100%" height="100%">
+   315→              <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+   316→                <CartesianGrid stroke="#3A3328" strokeDasharray="3 3" vertical={false} />
+   317→                <XAxis
+   318→                  dataKey="match"
+   319→                  tick={{ fill: "#8B8270", fontSize: 11, fontFamily: "var(--font-mono)" }}
+   320→                  axisLine={{ stroke: "#3A3328" }}
+   321→                  tickLine={{ stroke: "#3A3328" }}
+   322→                  label={{ value: "Partie", position: "insideBottom", offset: -2, fill: "#8B8270", fontSize: 10 }}
+   323→                />
+   324→                <YAxis
+   325→                  tick={{ fill: "#8B8270", fontSize: 11, fontFamily: "var(--font-mono)" }}
+   326→                  axisLine={{ stroke: "#3A3328" }}
+   327→                  tickLine={{ stroke: "#3A3328" }}
+   328→                  domain={["dataMin - 20", "dataMax + 20"]}
+   329→                  width={44}
+   330→                />
+   331→                <RTooltip content={<EloTooltip />} />
+   332→                <Line
+   333→                  type="monotone"
+   334→                  dataKey="elo"
+   335→                  stroke="#FF8C42"
+   336→                  strokeWidth={2}
+   337→                  dot={{ r: 2, fill: "#FF8C42", strokeWidth: 0 }}
+   338→                  activeDot={{ r: 4, fill: "#F5DEB3", stroke: "#FF8C42", strokeWidth: 2 }}
+   339→                  isAnimationActive={false}
+   340→                />
+   341→              </LineChart>
+   342→            </ResponsiveContainer>
+   343→          </div>
+   344→        )}
+   345→      </Panel>
+   346→
+   347→      {/* Recent matches */}
+   348→      <Panel className="!bg-[#1C1815] !border-[#3A3328] overflow-hidden">
+   349→        <div className="px-4 py-3 border-b border-[#3A3328] flex items-center justify-between">
+   350→          <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+   351→            Parties récentes
+   352→          </h2>
+   353→          <SectionLabel className="!text-[#8B8270]">10 dernières</SectionLabel>
+   354→        </div>
+   355→        <RecentTable matches={recent} />
+   356→      </Panel>
+   357→
+   358→      {/* Category stats */}
+   359→      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+   360→        <div className="flex items-center justify-between mb-4">
+   361→          <div className="flex items-center gap-2">
+   362→            <BarChart3 className="w-4 h-4" style={{ color: "#8FAF7E" }} />
+   363→            <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+   364→              Précision par catégorie
+   365→            </h2>
+   366→          </div>
+   367→          <span
+   368→            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border"
+   369→            style={{ color: "#D9A441", borderColor: "#D9A44155", background: "#D9A44112" }}
+   370→          >
+   371→            estimation
+   372→          </span>
+   373→        </div>
+   374→        <div className="space-y-2.5">
+   375→          {CATEGORIES.map((c) => (
+   376→            <CategoryBar key={c.label} label={c.label} pct={c.pct} />
+   377→          ))}
+   378→        </div>
+   379→      </Panel>
+   380→    </div>
+   381→  );
+   382→}
+   383→
+   384→function CategoryBar({ label, pct }: { label: string; pct: number }) {
+   385→  return (
+   386→    <div className="flex items-center gap-3">
+   387→      <span className="w-28 shrink-0 text-sm" style={{ color: "#C9BFB0" }}>
+   388→        {label}
+   389→      </span>
+   390→      <div
+   391→        className="relative h-2.5 flex-1 rounded-sm overflow-hidden"
+   392→        style={{ background: "#252019", border: "1px solid #3A3328" }}
+   393→      >
+   394→        <div
+   395→          className="absolute inset-y-0 left-0 transition-[width] duration-500"
+   396→          style={{ width: `${pct}%`, background: "#8FAF7E" }}
+   397→        />
+   398→      </div>
+   399→      <span className="w-10 shrink-0 text-right font-mono text-sm" style={{ color: "#F5EFE6" }}>
+   400→        {pct}%
+   401→      </span>
+   402→    </div>
+   403→  );
+   404→}
+   405→
+   406→/* ----------------------------------------------------------------
+   407→   Recent matches table (dense, min 5 rows)
+   408→   ---------------------------------------------------------------- */
+   409→
+   410→type MatchRow = Record<string, React.ReactNode>;
+   411→
+   412→function RecentTable({ matches }: { matches: MatchRecord[] }) {
+   413→  const rows = useMemo<MatchRow[]>(() => {
+   414→    const base: MatchRow[] = matches.map((m) => ({
+   415→      date: (
+   416→        <span style={{ color: "#8B8270" }} title={new Date(m.createdAt).toLocaleString("fr-FR")}>
+   417→          {formatDistanceToNow(new Date(m.createdAt), { addSuffix: false, locale: fr })}
+   418→        </span>
+   419→      ),
+   420→      opponent: (
+   421→        <span style={{ color: "#F5EFE6" }}>vs {m.opponentName}</span>
+   422→      ),
+   423→      result: <ResultBadge result={m.result} />,
+   424→      elo: <EloDelta change={m.eloChange} />,
+   425→      mode: (
+   426→        <span
+   427→          className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
+   428→          style={{
+   429→            color: m.universe === "arena" ? "#F5DEB3" : "#C9BFB0",
+   430→            background: m.universe === "arena" ? "#F5DEB312" : "#252019",
+   431→            border: `1px solid ${m.universe === "arena" ? "#F5DEB355" : "#3A3328"}`,
+   432→          }}
+   433→        >
+   434→          {MODE_LABEL[m.mode] ?? m.mode}
+   435→        </span>
+   436→      ),
+   437→    }));
+   438→    // Pad to minimum 5 rows for density.
+   439→    while (base.length < 5) {
+   440→      base.push({
+   441→        date: <span style={{ color: "#5C5142" }}>—</span>,
+   442→        opponent: <span style={{ color: "#5C5142" }}>—</span>,
+   443→        result: <span style={{ color: "#5C5142" }}>—</span>,
+   444→        elo: <span style={{ color: "#5C5142" }}>—</span>,
+   445→        mode: <span style={{ color: "#5C5142" }}>—</span>,
+   446→      });
+   447→    }
+   448→    return base;
+   449→  }, [matches]);
+   450→
+   451→  return (
+   452→    <WarmTable
+   453→      columns={[
+   454→        { key: "date", header: "Date", className: "w-28" },
+   455→        { key: "opponent", header: "Adversaire" },
+   456→        { key: "result", header: "Résultat", className: "w-24" },
+   457→        { key: "elo", header: "Elo ±", className: "w-20 text-right" },
+   458→        { key: "mode", header: "Mode", className: "w-28" },
+   459→      ]}
+   460→      rows={rows}
+   461→      rowKey={(_, i) => String(i)}
+   462→    />
+   463→  );
+   464→}
+   465→
+   466→function ResultBadge({ result }: { result: "WIN" | "LOSE" }) {
+   467→  const win = result === "WIN";
+   468→  return (
+   469→    <span
+   470→      className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide"
+   471→      style={{
+   472→        color: win ? "#8FAF7E" : "#C45A4A",
+   473→        background: win ? "#8FAF7E12" : "#C45A4A12",
+   474→        border: `1px solid ${win ? "#8FAF7E55" : "#C45A4A55"}`,
+   475→      }}
+   476→    >
+   477→      {win ? "Victoire" : "Défaite"}
+   478→    </span>
+   479→  );
+   480→}
+   481→
+   482→function EloDelta({ change }: { change: number }) {
+   483→  const positive = change >= 0;
+   484→  return (
+   485→    <span
+   486→      className="font-mono text-right inline-block w-full"
+   487→      style={{ color: change === 0 ? "#8B8270" : positive ? "#8FAF7E" : "#C45A4A" }}
+   488→    >
+   489→      {change > 0 ? "+" : ""}
+   490→      {change}
+   491→    </span>
+   492→  );
+   493→}
+   494→
+   495→/* ----------------------------------------------------------------
+   496→   Stats tab — winrate par mode (BarChart)
+   497→   ---------------------------------------------------------------- */
+   498→
+   499→function StatsTab({ matches }: { matches: MatchRecord[] }) {
+   500→  const compMatches = useMemo(
+   501→    () => matches.filter((m) => m.universe === "competitive"),
+   502→    [matches],
+   503→  );
+   504→
+   505→  const byMode = useMemo(() => {
+   506→    const modes = ["RANKED", "QUICK", "BLITZ"] as const;
+   507→    return modes.map((mode) => {
+   508→      const ms = compMatches.filter((m) => m.mode === mode);
+   509→      return {
+   510→        mode: MODE_LABEL[mode],
+   511→        wins: ms.filter((m) => m.result === "WIN").length,
+   512→        losses: ms.filter((m) => m.result === "LOSE").length,
+   513→      };
+   514→    });
+   515→  }, [compMatches]);
+   516→
+   517→  const isEstimate = compMatches.length === 0;
+   518→  const data = isEstimate
+   519→    ? [
+   520→        { mode: "Classé", wins: 12, losses: 8 },
+   521→        { mode: "Rapide", wins: 24, losses: 14 },
+   522→        { mode: "Blitz", wins: 9, losses: 11 },
+   523→      ]
+   524→    : byMode;
+   525→
+   526→  return (
+   527→    <div className="space-y-6">
+   528→      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+   529→        <div className="flex items-center justify-between mb-4">
+   530→          <div className="flex items-center gap-2">
+   531→            <BarChart3 className="w-4 h-4" style={{ color: "#FF8C42" }} />
+   532→            <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+   533→              Victoires et défaites par mode
+   534→            </h2>
+   535→          </div>
+   536→          {isEstimate && (
+   537→            <span
+   538→              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border"
+   539→              style={{ color: "#D9A441", borderColor: "#D9A44155", background: "#D9A44112" }}
+   540→            >
+   541→              estimation
+   542→            </span>
+   543→          )}
+   544→        </div>
+   545→        <div style={{ height: 260 }}>
+   546→          <ResponsiveContainer width="100%" height="100%">
+   547→            <BarChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+   548→              <CartesianGrid stroke="#3A3328" strokeDasharray="3 3" vertical={false} />
+   549→              <XAxis
+   550→                dataKey="mode"
+   551→                tick={{ fill: "#8B8270", fontSize: 12 }}
+   552→                axisLine={{ stroke: "#3A3328" }}
+   553→                tickLine={{ stroke: "#3A3328" }}
+   554→              />
+   555→              <YAxis
+   556→                tick={{ fill: "#8B8270", fontSize: 11, fontFamily: "var(--font-mono)" }}
+   557→                axisLine={{ stroke: "#3A3328" }}
+   558→                tickLine={{ stroke: "#3A3328" }}
+   559→                allowDecimals={false}
+   560→                width={36}
+   561→              />
+   562→              <RTooltip content={<StatsTooltip />} cursor={{ fill: "#2E282060" }} />
+   563→              <Legend
+   564→                wrapperStyle={{ fontSize: 12, color: "#C9BFB0" }}
+   565→                formatter={(v) => <span style={{ color: "#C9BFB0" }}>{v}</span>}
+   566→              />
+   567→              <Bar dataKey="wins" name="Victoires" stackId="a" fill="#8FAF7E" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+   568→              <Bar dataKey="losses" name="Défaites" stackId="a" fill="#C45A4A" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+   569→            </BarChart>
+   570→          </ResponsiveContainer>
+   571→        </div>
+   572→      </Panel>
+   573→
+   574→      <Panel className="p-4 !bg-[#1C1815] !border-[#3A3328]">
+   575→        <h2 className="text-sm font-semibold mb-3" style={{ color: "#F5EFE6" }}>
+   576→          Synthèse
+   577→        </h2>
+   578→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   579→          <SynthTile label="Modes joués" value={String(new Set(compMatches.map((m) => m.mode)).size)} />
+   580→          <SynthTile label="Total compétitif" value={String(compMatches.length)} />
+   581→          <SynthTile
+   582→            label="Total entraînement"
+   583→            value={String(matches.filter((m) => m.universe === "arena").length)}
+   584→          />
+   585→          <SynthTile label="Catégories" value="8" />
+   586→        </div>
+   587→      </Panel>
+   588→    </div>
+   589→  );
+   590→}
+   591→
+   592→function SynthTile({ label, value }: { label: string; value: string }) {
+   593→  return (
+   594→    <div
+   595→      className="rounded-md p-3"
+   596→      style={{ background: "#252019", border: "1px solid #3A3328" }}
+   597→    >
+   598→      <div className="text-xs uppercase tracking-wider" style={{ color: "#8B8270" }}>
+   599→        {label}
+   600→      </div>
+   601→      <div className="mt-1 font-mono text-lg font-semibold" style={{ color: "#F5EFE6" }}>
+   602→        {value}
+   603→      </div>
+   604→    </div>
+   605→  );
+   606→}
+   607→
+   608→/* ----------------------------------------------------------------
+   609→   History tab — full table with Univers + Mode columns
+   610→   ---------------------------------------------------------------- */
+   611→
+   612→function HistoryTab({ matches }: { matches: MatchRecord[] }) {
+   613→  const rows = useMemo<MatchRow[]>(() => {
+   614→    const base: MatchRow[] = matches.map((m) => ({
+   615→      date: (
+   616→        <span style={{ color: "#8B8270" }} title={new Date(m.createdAt).toLocaleString("fr-FR")}>
+   617→          {formatDistanceToNow(new Date(m.createdAt), { addSuffix: false, locale: fr })}
+   618→        </span>
+   619→      ),
+   620→      universe: (
+   621→        <span
+   622→          className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
+   623→          style={{
+   624→            color: m.universe === "arena" ? "#F5DEB3" : "#FF8C42",
+   625→            background: m.universe === "arena" ? "#F5DEB312" : "#FF8C4212",
+   626→            border: `1px solid ${m.universe === "arena" ? "#F5DEB355" : "#FF8C4255"}`,
+   627→          }}
+   628→        >
+   629→          {UNIVERSE_LABEL[m.universe] ?? m.universe}
+   630→        </span>
+   631→      ),
+   632→      opponent: <span style={{ color: "#F5EFE6" }}>vs {m.opponentName}</span>,
+   633→      result: <ResultBadge result={m.result} />,
+   634→      elo: <EloDelta change={m.eloChange} />,
+   635→      mode: (
+   636→        <span style={{ color: "#C9BFB0" }}>{MODE_LABEL[m.mode] ?? m.mode}</span>
+   637→      ),
+   638→    }));
+   639→    while (base.length < 5) {
+   640→      base.push({
+   641→        date: <span style={{ color: "#5C5142" }}>—</span>,
+   642→        universe: <span style={{ color: "#5C5142" }}>—</span>,
+   643→        opponent: <span style={{ color: "#5C5142" }}>—</span>,
+   644→        result: <span style={{ color: "#5C5142" }}>—</span>,
+   645→        elo: <span style={{ color: "#5C5142" }}>—</span>,
+   646→        mode: <span style={{ color: "#5C5142" }}>—</span>,
+   647→      });
+   648→    }
+   649→    return base;
+   650→  }, [matches]);
+   651→
+   652→  if (matches.length === 0) {
+   653→    return <EmptyState />;
+   654→  }
+   655→
+   656→  return (
+   657→    <Panel className="!bg-[#1C1815] !border-[#3A3328] overflow-hidden">
+   658→      <div className="px-4 py-3 border-b border-[#3A3328] flex items-center justify-between">
+   659→        <h2 className="text-sm font-semibold" style={{ color: "#F5EFE6" }}>
+   660→          Historique complet
+   661→        </h2>
+   662→        <SectionLabel className="!text-[#8B8270]">{matches.length} parties</SectionLabel>
+   663→      </div>
+   664→      <WarmTable
+   665→        columns={[
+   666→          { key: "date", header: "Date", className: "w-28" },
+   667→          { key: "universe", header: "Univers", className: "w-28" },
+   668→          { key: "opponent", header: "Adversaire" },
+   669→          { key: "result", header: "Résultat", className: "w-24" },
+   670→          { key: "elo", header: "Elo ±", className: "w-20 text-right" },
+   671→          { key: "mode", header: "Mode", className: "w-24" },
+   672→        ]}
+   673→        rows={rows}
+   674→        rowKey={(_, i) => String(i)}
+   675→      />
+   676→    </Panel>
+   677→  );
+   678→}
+   679→
+   680→function EmptyState() {
+   681→  const setView = useApp((s) => s.setView);
+   682→  return (
+   683→    <Panel className="p-10 flex flex-col items-center gap-4 text-center !bg-[#1C1815] !border-[#3A3328]">
+   684→      <Clock className="w-8 h-8" style={{ color: "#8B8270" }} />
+   685→      <div>
+   686→        <div className="text-base font-semibold" style={{ color: "#F5EFE6" }}>
+   687→          Aucune partie jouée
+   688→        </div>
+   689→        <div className="text-sm mt-1" style={{ color: "#8B8270" }}>
+   690→          Lance ton premier duel pour commencer à grimper le classement.
+   691→        </div>
+   692→      </div>
+   693→      <Btn
+   694→        className="!bg-[#FF8C42] !text-[#14110F] hover:!bg-[#E5732A]"
+   695→        onClick={() => setView("classselect")}
+   696→      >
+   697→        Jouer
+   698→      </Btn>
+   699→    </Panel>
+   700→  );
+   701→}
+   702→
+   703→/* ----------------------------------------------------------------
+   704→   Coming soon (Succès / Amis / Paramètres)
+   705→   ---------------------------------------------------------------- */
+   706→
+   707→function ComingSoon() {
+   708→  return (
+   709→    <Panel className="p-10 flex flex-col items-center gap-3 text-center !bg-[#1C1815] !border-[#3A3328]">
+   710→      <Clock className="w-8 h-8" style={{ color: "#8B8270" }} />
+   711→      <div className="text-base font-semibold" style={{ color: "#F5EFE6" }}>
+   712→        Bientôt disponible
+   713→      </div>
+   714→      <div className="text-sm" style={{ color: "#8B8270" }}>
+   715→        Cette section arrive dans une prochaine mise à jour.
+   716→      </div>
+   717→    </Panel>
+   718→  );
+   719→}
+   720→
+   721→/* ----------------------------------------------------------------
+   722→   Warm table (local — primitive DataTable uses cool highlight/zebra)
+   723→   ---------------------------------------------------------------- */
+   724→
+   725→/* ----------------------------------------------------------------
+   726→   Warm stat tile (local — primitive StatTile types label/sub as string
+   727→   and uses cool-gray inner colors; warm variant for full palette control)
+   728→   ---------------------------------------------------------------- */
+   729→
+   730→function WarmStat({
+   731→  label,
+   732→  value,
+   733→  valueColor = "#F5EFE6",
+   734→  sub,
+   735→}: {
+   736→  label: string;
+   737→  value: string;
+   738→  valueColor?: string;
+   739→  sub?: string;
+   740→}) {
+   741→  return (
+   742→    <Panel className={cn("p-4", "!bg-[#1C1815] !border-[#3A3328]")}>
+   743→      <div className="text-xs font-medium uppercase tracking-wider" style={{ color: "#8B8270" }}>
+   744→        {label}
+   745→      </div>
+   746→      <div className="mt-1 font-mono font-medium text-xl" style={{ color: valueColor }}>
+   747→        {value}
+   748→      </div>
+   749→      {sub && (
+   750→        <div className="text-xs mt-0.5" style={{ color: "#8B8270" }}>
+   751→          {sub}
+   752→        </div>
+   753→      )}
+   754→    </Panel>
+   755→  );
+   756→}
+   757→
+   758→interface WarmColumn {
+   759→  key: string;
+   760→  header: React.ReactNode;
+   761→  className?: string;
+   762→}
+   763→
+   764→function WarmTable<T>({
+   765→  columns,
+   766→  rows,
+   767→  rowKey,
+   768→}: {
+   769→  columns: WarmColumn[];
+   770→  rows: T[];
+   771→  rowKey: (row: T, i: number) => string;
+   772→}) {
+   773→  return (
+   774→    <div className="overflow-x-auto scrollbar-warm">
+   775→      <table className="w-full text-sm">
+   776→        <thead>
+   777→          <tr className="border-b border-[#3A3328] text-left">
+   778→            {columns.map((c) => (
+   779→              <th
+   780→                key={c.key}
+   781→                className={cn(
+   782→                  "py-2 px-3 text-xs font-medium uppercase tracking-wider whitespace-nowrap",
+   783→                  c.className,
+   784→                )}
+   785→                style={{ color: "#8B8270" }}
+   786→              >
+   787→                {c.header}
+   788→              </th>
+   789→            ))}
+   790→          </tr>
+   791→        </thead>
+   792→        <tbody>
+   793→          {rows.map((row, i) => (
+   794→            <tr
+   795→              key={rowKey(row, i)}
+   796→              className="border-b border-[#2E2820] transition-colors hover:bg-[#2E2820]/60"
+   797→              style={i % 2 === 1 ? { background: "#1C181580" } : undefined}
+   798→            >
+   799→              {columns.map((c) => (
+   800→                <td key={c.key} className={cn("py-2 px-3 whitespace-nowrap", c.className)}>
+   801→                  {(row as Record<string, React.ReactNode>)[c.key]}
+   802→                </td>
+   803→              ))}
+   804→            </tr>
+   805→          ))}
+   806→        </tbody>
+   807→      </table>
+   808→    </div>
+   809→  );
+   810→}
+   811→
+   812→/* ----------------------------------------------------------------
+   813→   Recharts tooltips (warm, typed)
+   814→   ---------------------------------------------------------------- */
+   815→
+   816→interface TooltipPayloadItem {
+   817→  value?: number | string;
+   818→  name?: string;
+   819→  color?: string;
+   820→}
+   821→
+   822→interface TooltipProps {
+   823→  active?: boolean;
+   824→  payload?: TooltipPayloadItem[];
+   825→  label?: number | string;
+   826→}
+   827→
+   828→function EloTooltip({ active, payload, label }: TooltipProps) {
+   829→  if (!active || !payload || payload.length === 0) return null;
+   830→  return (
+   831→    <div
+   832→      className="rounded-md px-2.5 py-1.5 text-xs"
+   833→      style={{ background: "#1C1815", border: "1px solid #4A4133" }}
+   834→    >
+   835→      <div style={{ color: "#8B8270" }}>Partie #{label}</div>
+   836→      <div className="font-mono" style={{ color: "#F5DEB3" }}>
+   837→        {payload[0].value} Elo
+   838→      </div>
+   839→    </div>
+   840→  );
+   841→}
+   842→
+   843→function StatsTooltip({ active, payload, label }: TooltipProps) {
+   844→  if (!active || !payload || payload.length === 0) return null;
+   845→  return (
+   846→    <div
+   847→      className="rounded-md px-2.5 py-1.5 text-xs space-y-0.5"
+   848→      style={{ background: "#1C1815", border: "1px solid #4A4133" }}
+   849→    >
+   850→      <div style={{ color: "#8B8270" }}>{label}</div>
+   851→      {payload.map((p, i) => (
+   852→        <div key={i} className="font-mono flex items-center gap-1.5">
+   853→          <span
+   854→            className="inline-block w-2 h-2 rounded-sm"
+   855→            style={{ background: p.color }}
+   856→          />
+   857→          <span style={{ color: "#C9BFB0" }}>{p.name}</span>
+   858→          <span style={{ color: "#F5EFE6" }}>{p.value}</span>
+   859→        </div>
+   860→      ))}
+   861→    </div>
+   862→  );
+   863→}
+   864→
+   865→/* ----------------------------------------------------------------
+   866→   Skeleton
+   867→   ---------------------------------------------------------------- */
+   868→
+   869→function ProfileSkeleton() {
+   870→  return (
+   871→    <div className="space-y-6 animate-pulse">
+   872→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   873→        {Array.from({ length: 3 }).map((_, i) => (
+   874→          <div key={i} className="h-20 rounded-lg" style={{ background: "#1C1815", border: "1px solid #3A3328" }} />
+   875→        ))}
+   876→      </div>
+   877→      <div className="h-[260px] rounded-lg" style={{ background: "#1C1815", border: "1px solid #3A3328" }} />
+   878→      <div className="rounded-lg overflow-hidden" style={{ background: "#1C1815", border: "1px solid #3A3328" }}>
+   879→        <div className="h-10 border-b" style={{ borderColor: "#3A3328" }} />
+   880→        {Array.from({ length: 6 }).map((_, i) => (
+   881→          <div key={i} className="h-10 border-b" style={{ borderColor: "#2E2820" }} />
+   882→        ))}
+   883→      </div>
+   884→    </div>
+   885→  );
+   886→}
+   887→

@@ -1,18 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertCircle, Trophy } from "lucide-react";
 
-import { Btn, Panel, PageTitle, SectionLabel, RankBadge } from "@/components/matharena/ui";
+import {
+  Btn,
+  DataTable,
+  OrnamentDivider,
+  PageTitle,
+  Panel,
+  RankBadge,
+  Tabs,
+} from "@/components/matharena/ui";
 import { api, type LeaderboardEntry } from "@/lib/api";
 import { useApp } from "@/lib/store";
-import { cn } from "@/lib/utils";
 
 /* ============================================================
-   LeaderboardScreen — Chess.com style, WARM palette
+   LeaderboardScreen — Chess.com style, LIGHT WARM cream
    Classement compétitif (Elo officiel, pur skill).
    Filtres : Global / Par mode / Amis.
-   Top 3 surlignés beige doré, ligne utilisateur bordure orange.
+   Top 3 surlignés peach tint, ligne utilisateur bordure orange.
    ============================================================ */
 
 type Filter = "global" | "mode" | "friends";
@@ -58,88 +65,89 @@ export default function LeaderboardScreen() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
         <div>
-          <PageTitle className="!text-[#F5EFE6]">Classement</PageTitle>
-          <p className="mt-1 text-sm" style={{ color: "#C9BFB0" }}>
+          <PageTitle>Classement</PageTitle>
+          <p className="mt-1 text-sm text-[#6b5f4f]">
             Les meilleurs calculateurs de MathArena
           </p>
         </div>
-        <Btn
-          className="!bg-[#FF8C42] !text-[#14110F] hover:!bg-[#E5732A] shrink-0"
-          onClick={() => setView("classselect")}
-        >
+        <Btn variant="primary" className="shrink-0" onClick={() => setView("classselect")}>
           Nouveau duel
         </Btn>
       </div>
 
+      <OrnamentDivider />
+
       {/* Filters */}
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <div
-          className="inline-flex items-center gap-0.5 p-0.5 rounded-md"
-          style={{ background: "#1C1815", border: "1px solid #3A3328" }}
-        >
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                filter === f.value
-                  ? "bg-[#FF8C42] text-[#14110F]"
-                  : "text-[#C9BFB0] hover:text-[#F5EFE6] hover:bg-[#2E2820]",
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <SectionLabel className="!text-[#8B8270]">Compétitif · Elo officiel</SectionLabel>
+      <div className="mb-4 flex items-center gap-3 flex-wrap">
+        <Tabs
+          options={FILTERS}
+          value={filter}
+          onChange={setFilter}
+          accent="orange"
+        />
+        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">
+          Compétitif · Elo officiel
+        </span>
       </div>
 
       {/* Body */}
       {loading ? (
         <LeaderboardSkeleton />
       ) : error ? (
-        <Panel className="p-6 flex items-center gap-3 text-sm !bg-[#1C1815] !border-[#3A3328]">
-          <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "#C45A4A" }} />
-          <span className="flex-1" style={{ color: "#C9BFB0" }}>
-            {error}
-          </span>
-          <Btn
-            size="sm"
-            variant="secondary"
-            className="!bg-transparent !border-[#4A4133] !text-[#F5EFE6] hover:!bg-[#2E2820]"
-            onClick={() => void reload()}
-          >
+        <Panel className="p-6 flex items-center gap-3 text-sm">
+          <AlertCircle className="w-4 h-4 shrink-0 text-[#b5524a]" />
+          <span className="flex-1 text-[#6b5f4f]">{error}</span>
+          <Btn size="sm" variant="secondary" onClick={() => void reload()}>
             Réessayer
           </Btn>
         </Panel>
       ) : filter === "friends" && visible.length === 0 ? (
-        <Panel className="p-10 text-center !bg-[#1C1815] !border-[#3A3328]">
-          <div className="text-sm" style={{ color: "#C9BFB0" }}>
-            Tu n'as pas encore d'amis sur MathArena.
+        <Panel className="p-10 text-center">
+          <div className="text-sm text-[#6b5f4f]">
+            Tu n&apos;as pas encore d&apos;amis sur MathArena.
           </div>
-          <div className="text-xs mt-1" style={{ color: "#8B8270" }}>
-            La liste d'amis arrive dans une prochaine mise à jour.
+          <div className="text-xs mt-1 text-[#9c8e7a]">
+            La liste d&apos;amis arrive dans une prochaine mise à jour.
           </div>
         </Panel>
       ) : (
-        <Panel className="overflow-hidden !bg-[#1C1815] !border-[#3A3328]">
-          <LeaderboardTable entries={visible} offsetRank={0} />
+        <Panel className="overflow-hidden">
+          <LeaderboardTable entries={visible} />
         </Panel>
       )}
 
+      {/* Pagination texte */}
+      {!loading && !error && visible.length > 0 && (
+        <div className="mt-4 flex items-center justify-center gap-4 text-sm text-[#9c8e7a]">
+          <button
+            type="button"
+            disabled
+            className="px-2 py-1 rounded transition-colors hover:bg-[#efe8db] hover:text-[#6b5f4f] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#9c8e7a]"
+          >
+            ← Précédent
+          </button>
+          <span className="font-mono">Page 1 / 1</span>
+          <button
+            type="button"
+            disabled
+            className="px-2 py-1 rounded transition-colors hover:bg-[#efe8db] hover:text-[#6b5f4f] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#9c8e7a]"
+          >
+            Suivant →
+          </button>
+        </div>
+      )}
+
       {/* Note */}
-      <div className="mt-4 flex items-start gap-2 text-xs" style={{ color: "#8B8270" }}>
-        <Trophy className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "#FF8C42" }} />
+      <div className="mt-4 flex items-start gap-2 text-xs text-[#9c8e7a]">
+        <Trophy className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#e8823d]" />
         <span>
           {filter === "mode"
             ? "Classement agrégé — tous modes compétitifs confondus (Classé, Rapide, Blitz)."
             : filter === "friends"
-              ? "Compare ton Elo avec tes amis. Liste d'amis bientôt disponible."
-              : "Le classement compétitif prend en compte tous les modes sauf l'entraînement."}
+              ? "Compare ton Elo avec tes amis. Liste d&apos;amis bientôt disponible."
+              : "Le classement compétitif prend en compte tous les modes sauf l&apos;entraînement."}
         </span>
       </div>
     </div>
@@ -150,146 +158,86 @@ export default function LeaderboardScreen() {
    Table
    ---------------------------------------------------------------- */
 
-function LeaderboardTable({
-  entries,
-  offsetRank,
-}: {
-  entries: LeaderboardEntry[];
-  offsetRank: number;
-}) {
-  const rows = useMemo(() => entries, [entries]);
+type LBRow = Record<string, ReactNode>;
+
+function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
+  const rows = useMemo<LBRow[]>(() => {
+    const base: LBRow[] = entries.map((e, i) => ({
+      rank: <RankNumber rank={i + 1} />,
+      player: (
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-[#2a2520]">{e.name}</span>
+          {e.isMe && <YouBadge />}
+          {e.isBot && <BotBadge />}
+        </div>
+      ),
+      division: <RankBadge elo={e.elo} />,
+      elo: <span className="font-mono font-semibold text-[#2a2520]">{e.elo}</span>,
+      level: <span className="font-mono text-[#6b5f4f]">{e.level}</span>,
+      vd: (
+        <span className="font-mono">
+          <span className="text-[#7a9b6e]">{e.wins}</span>
+          <span className="text-[#9c8e7a]">-</span>
+          <span className="text-[#b5524a]">{e.losses}</span>
+        </span>
+      ),
+      trend: <Trend winrate={e.winrate} />,
+    }));
+    // Pad to minimum 5 rows.
+    while (base.length < 5) {
+      base.push({
+        rank: <span className="text-[#c9bba0]">—</span>,
+        player: <span className="text-[#c9bba0]">—</span>,
+        division: <span className="text-[#c9bba0]">—</span>,
+        elo: <span className="text-[#c9bba0]">—</span>,
+        level: <span className="text-[#c9bba0]">—</span>,
+        vd: <span className="text-[#c9bba0]">—</span>,
+        trend: <span className="text-[#c9bba0]">—</span>,
+      });
+    }
+    return base;
+  }, [entries]);
+
+  const rowClassName = (_row: LBRow, i: number) => {
+    // Top 3 : fond peach tint très subtil.
+    if (i < 3) return "bg-[rgba(240,178,122,0.08)]";
+    return undefined;
+  };
+
+  // isMe highlight : bordure gauche orange 2px + fond très léger (via DataTable.highlight).
+  const highlight = (_row: LBRow, i: number) => {
+    const e = entries[i];
+    return Boolean(e?.isMe);
+  };
 
   return (
-    <div className="overflow-x-auto scrollbar-warm">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left" style={{ borderColor: "#3A3328" }}>
-            <Th className="w-12">#</Th>
-            <Th>Joueur</Th>
-            <Th className="w-32">Rang</Th>
-            <Th className="w-20 text-right">Elo</Th>
-            <Th className="w-20 text-right">Niveau</Th>
-            <Th className="w-24 text-right">V-D</Th>
-            <Th className="w-20 text-center">Tendance</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((e, i) => {
-            const rank = i + 1 + offsetRank;
-            const isTop3 = rank <= 3;
-            return (
-              <tr
-                key={e.id}
-                className="border-b transition-colors"
-                style={{
-                  borderColor: "#2E2820",
-                  background: e.isMe
-                    ? "rgba(255,140,66,0.07)"
-                    : isTop3
-                      ? "rgba(245,222,179,0.06)"
-                      : i % 2 === 1
-                        ? "#1C181580"
-                        : undefined,
-                  boxShadow: e.isMe ? "inset 2px 0 0 #FF8C42" : undefined,
-                }}
-                onMouseEnter={(ev) => {
-                  (ev.currentTarget as HTMLTableRowElement).style.background = e.isMe
-                    ? "rgba(255,140,66,0.12)"
-                    : "#2E282080";
-                }}
-                onMouseLeave={(ev) => {
-                  (ev.currentTarget as HTMLTableRowElement).style.background = e.isMe
-                    ? "rgba(255,140,66,0.07)"
-                    : isTop3
-                      ? "rgba(245,222,179,0.06)"
-                      : i % 2 === 1
-                        ? "#1C181580"
-                        : "transparent";
-                }}
-              >
-                <Td className="w-12">
-                  <RankNumber rank={rank} />
-                </Td>
-                <Td>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium" style={{ color: "#F5EFE6" }}>
-                      {e.name}
-                    </span>
-                    {e.isMe && <YouBadge />}
-                    {e.isBot && <BotBadge />}
-                  </div>
-                </Td>
-                <Td className="w-32">
-                  <RankBadge elo={e.elo} />
-                </Td>
-                <Td className="w-20 text-right">
-                  <span className="font-mono font-semibold" style={{ color: "#F5DEB3" }}>
-                    {e.elo}
-                  </span>
-                </Td>
-                <Td className="w-20 text-right">
-                  <span className="font-mono" style={{ color: "#C9BFB0" }}>
-                    {e.level}
-                  </span>
-                </Td>
-                <Td className="w-24 text-right">
-                  <span className="font-mono">
-                    <span style={{ color: "#8FAF7E" }}>{e.wins}</span>
-                    <span style={{ color: "#8B8270" }}>-</span>
-                    <span style={{ color: "#C45A4A" }}>{e.losses}</span>
-                  </span>
-                </Td>
-                <Td className="w-20 text-center">
-                  <Trend winrate={e.winrate} />
-                </Td>
-              </tr>
-            );
-          })}
-          {/* Pad to minimum 5 rows */}
-          {rows.length < 5 &&
-            Array.from({ length: 5 - rows.length }).map((_, i) => (
-              <tr key={`pad-${i}`} className="border-b" style={{ borderColor: "#2E2820" }}>
-                <Td className="w-12"><span style={{ color: "#5C5142" }}>—</span></Td>
-                <Td><span style={{ color: "#5C5142" }}>—</span></Td>
-                <Td className="w-32"><span style={{ color: "#5C5142" }}>—</span></Td>
-                <Td className="w-20 text-right"><span style={{ color: "#5C5142" }}>—</span></Td>
-                <Td className="w-20 text-right"><span style={{ color: "#5C5142" }}>—</span></Td>
-                <Td className="w-24 text-right"><span style={{ color: "#5C5142" }}>—</span></Td>
-                <Td className="w-20 text-center"><span style={{ color: "#5C5142" }}>—</span></Td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Th({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={cn("py-2 px-3 text-xs font-medium uppercase tracking-wider whitespace-nowrap", className)}
-      style={{ color: "#8B8270" }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <td className={cn("py-2.5 px-3 whitespace-nowrap", className)}>{children}</td>
+    <DataTable
+      columns={[
+        { key: "rank", header: "#", className: "w-12" },
+        { key: "player", header: "Joueur" },
+        { key: "division", header: "Rang", className: "w-32" },
+        { key: "elo", header: "Elo", className: "w-20 text-right" },
+        { key: "level", header: "Niveau", className: "w-20 text-right" },
+        { key: "vd", header: "V-D", className: "w-24 text-right" },
+        { key: "trend", header: "Tendance", className: "w-20 text-center" },
+      ]}
+      rows={rows}
+      rowKey={(_, i) => String(i)}
+      highlight={highlight}
+      rowClassName={rowClassName}
+    />
   );
 }
 
 function RankNumber({ rank }: { rank: number }) {
-  let color = "#8B8270";
-  if (rank === 1) color = "#F5DEB3";
-  else if (rank === 2) color = "#C9BFB0";
-  else if (rank === 3) color = "#D9A441";
+  let color = "#9c8e7a";
+  if (rank === 1) color = "#c9974a";
+  else if (rank === 2) color = "#6b5f4f";
+  else if (rank === 3) color = "#b5722e";
   return (
     <span
       className="inline-flex items-center justify-center w-6 h-6 rounded font-mono text-xs font-semibold"
-      style={{ color, background: rank <= 3 ? `${color}15` : "transparent" }}
+      style={{ color, background: rank <= 3 ? `${color}12` : "transparent" }}
     >
       {rank}
     </span>
@@ -300,7 +248,7 @@ function YouBadge() {
   return (
     <span
       className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
-      style={{ color: "#FF8C42", background: "#FF8C4212", border: "1px solid #FF8C4255" }}
+      style={{ color: "#e8823d", background: "#fce5d1", border: "1px solid #e8823d55" }}
     >
       Toi
     </span>
@@ -311,7 +259,7 @@ function BotBadge() {
   return (
     <span
       className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
-      style={{ color: "#C9BFB0", background: "#252019", border: "1px solid #3A3328" }}
+      style={{ color: "#9c8e7a", background: "#efe8db", border: "1px solid #ebe2d2" }}
     >
       Bot
     </span>
@@ -320,13 +268,13 @@ function BotBadge() {
 
 function Trend({ winrate }: { winrate: number }) {
   let arrow = "—";
-  let color = "#8B8270";
+  let color = "#9c8e7a";
   if (winrate >= 55) {
     arrow = "▲";
-    color = "#8FAF7E";
+    color = "#7a9b6e";
   } else if (winrate <= 45) {
     arrow = "▼";
-    color = "#C45A4A";
+    color = "#b5524a";
   }
   return (
     <span className="font-mono text-sm" style={{ color }}>
@@ -341,10 +289,13 @@ function Trend({ winrate }: { winrate: number }) {
 
 function LeaderboardSkeleton() {
   return (
-    <div className="animate-pulse rounded-lg overflow-hidden" style={{ background: "#1C1815", border: "1px solid #3A3328" }}>
-      <div className="h-10 border-b" style={{ borderColor: "#3A3328" }} />
+    <div
+      className="animate-pulse rounded-md overflow-hidden"
+      style={{ background: "#faf6f0", border: "1px solid #ebe2d2" }}
+    >
+      <div className="h-10 border-b border-[#ebe2d2]" />
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="h-11 border-b" style={{ borderColor: "#2E2820" }} />
+        <div key={i} className="h-11 border-b border-[#ebe2d2]" />
       ))}
     </div>
   );

@@ -27,10 +27,10 @@ const LOG_ICON: Record<CompLogEntry["kind"], string> = {
   info: "⚡",
 };
 const LOG_COLOR: Record<CompLogEntry["kind"], string> = {
-  point: "text-[#f5efe6]",
-  miss: "text-[#d9534f]",
-  timeout: "text-[#d9534f]",
-  combo: "text-[#e5a847]",
+  point: "text-[#2a2520]",
+  miss: "text-[#b5524a]",
+  timeout: "text-[#b5524a]",
+  combo: "text-[#c9974a]",
   info: "text-[#7a7164]",
 };
 
@@ -162,7 +162,7 @@ export function CompetitiveDuelScreen() {
 
   if (!state.question && !isGameOver) {
     return (
-      <div className="h-screen grid place-items-center bg-[#14110f] text-[#b8ae9e] text-sm">
+      <div className="h-screen grid place-items-center bg-[#f5efe6] text-[#6b5f4f] text-sm">
         Chargement…
       </div>
     );
@@ -171,26 +171,26 @@ export function CompetitiveDuelScreen() {
   const timePct = Math.max(0, Math.min(100, (timeLeftMs / state.timeLimitMs) * 100));
   const urgent = timeLeftMs <= 3000 && timeLeftMs > 0 && !isGameOver;
   const warning = timeLeftMs <= 5000 && timeLeftMs > 3000 && !isGameOver;
-  const timerColor = isGameOver ? "#7a7164" : urgent ? "#d9534f" : warning ? "#e5a847" : "#ff8c42";
+  const timerColor = isGameOver ? "#7a7164" : urgent ? "#b5524a" : warning ? "#c9974a" : "#e8823d";
 
   const inputBorderClass = flash === "wrong"
-    ? "border-[#d9534f] animate-shake"
+    ? "border-[#b5524a] animate-shake"
     : flash === "correct"
-      ? "border-[#6baa75]"
+      ? "border-[#7a9b6e]"
       : flash === "critical"
-        ? "border-[#f5deb3]"
-        : "border-[#4a4133] focus:border-[#ff8c42]";
+        ? "border-[#f0b27a]"
+        : "border-[#dcd0bc] focus:border-[#e8823d]";
 
   const modeLabel = MODE_LABEL[state.mode] ?? state.mode;
   const q = state.question;
   const div = divisionFor(elo);
 
   return (
-    <div className="h-screen flex flex-col bg-[#14110f] overflow-hidden relative">
+    <div className="h-screen flex flex-col bg-[#f5efe6] overflow-hidden relative">
       {/* ===== DISCRETE ICONS (no top bar) ===== */}
       <button
         onClick={() => { if (confirm("Abandonner le duel ?")) duel.quit(); }}
-        className="absolute top-3 left-3 z-30 text-[#7a7164] hover:text-[#f5efe6] opacity-40 hover:opacity-100 transition-opacity text-lg"
+        className="absolute top-3 left-3 z-30 text-[#7a7164] hover:text-[#2a2520] opacity-40 hover:opacity-100 transition-opacity text-lg"
         title="Abandonner (Échap)"
       >
         ✕
@@ -202,14 +202,14 @@ export function CompetitiveDuelScreen() {
             setMuted(next);
             sound.setMuted(next);
           }}
-          className="text-[#7a7164] hover:text-[#f5efe6] transition-colors text-base"
+          className="text-[#7a7164] hover:text-[#2a2520] transition-colors text-base"
           title="Muet (M)"
         >
           {muted ? "🔇" : "🔊"}
         </button>
         <button
           onClick={() => !isGameOver && setShowJournal(true)}
-          className="text-[#7a7164] hover:text-[#f5efe6] transition-colors text-base"
+          className="text-[#7a7164] hover:text-[#2a2520] transition-colors text-base"
           title="Journal (J)"
         >
           📜
@@ -226,7 +226,7 @@ export function CompetitiveDuelScreen() {
           >
             {isGameOver ? "—" : `${(timeLeftMs / 1000).toFixed(1)}`}
           </div>
-          <div className="w-48 sm:w-64 h-1 rounded-full bg-[#252019] overflow-hidden">
+          <div className="w-48 sm:w-64 h-1 rounded-full bg-[#efe8db] overflow-hidden">
             <div
               className="h-full transition-[width] duration-100 ease-linear rounded-full"
               style={{ width: `${isGameOver ? 0 : timePct}%`, background: timerColor }}
@@ -254,11 +254,11 @@ export function CompetitiveDuelScreen() {
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
               className={cn(
-                "rounded-2xl border border-[rgba(255,140,66,0.2)] bg-gradient-to-b from-[#1c1815] to-[#252019] px-8 py-10 sm:px-14 sm:py-12 max-w-[680px] w-full text-center warm-glow",
+                "rounded-2xl border border-[rgba(232,130,61,0.2)] bg-gradient-to-b from-[#faf6f0] to-[#efe8db] px-8 py-10 sm:px-14 sm:py-12 max-w-[680px] w-full text-center warm-glow",
                 flash === "correct" && "animate-glow-pulse",
               )}
             >
-              <div className="font-mono font-bold text-4xl sm:text-6xl xl:text-7xl text-[#f5efe6]">
+              <div className="font-mono font-bold text-4xl sm:text-6xl xl:text-7xl text-[#2a2520]">
                 {q.text.endsWith("?") ? (
                   q.text
                 ) : (
@@ -278,7 +278,7 @@ export function CompetitiveDuelScreen() {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="text-sm font-bold uppercase tracking-widest text-[#f5deb3]"
+              className="text-sm font-bold uppercase tracking-widest text-[#f0b27a]"
             >
               Rapide !
             </motion.div>
@@ -303,13 +303,13 @@ export function CompetitiveDuelScreen() {
               placeholder="—"
               autoComplete="off"
               className={cn(
-                "flex-1 text-center font-mono font-bold text-3xl sm:text-5xl bg-[#252019] border-2 rounded-xl px-5 py-4 outline-none transition-colors",
+                "flex-1 text-center font-mono font-bold text-3xl sm:text-5xl bg-[#efe8db] border-2 rounded-xl px-5 py-4 outline-none transition-colors",
                 inputBorderClass,
               )}
             />
             <button
               type="submit"
-              className="shrink-0 px-4 py-4 rounded-xl text-sm font-medium text-[#b8ae9e] border border-[#4a4133] hover:text-[#f5efe6] hover:border-[#ff8c42] hover:bg-[#2e2820] transition-colors"
+              className="shrink-0 px-4 py-4 rounded-xl text-sm font-medium text-[#6b5f4f] border border-[#dcd0bc] hover:text-[#2a2520] hover:border-[#e8823d] hover:bg-[#e8dfcd] transition-colors"
             >
               Valider
             </button>
@@ -327,13 +327,13 @@ export function CompetitiveDuelScreen() {
         <div className="shrink-0 px-4 pb-4">
           <div className="mx-auto max-w-[680px] grid grid-cols-2 gap-3">
             {/* Player panel (left) */}
-            <div className="rounded-[10px] border border-[#4a4133] bg-[#1c1815] p-4">
+            <div className="rounded-[10px] border border-[#dcd0bc] bg-[#faf6f0] p-4">
               <div className="flex items-center gap-2.5 mb-2">
-                <div className="grid place-items-center w-8 h-8 rounded-full bg-[#252019] border border-[#4a4133] text-sm font-semibold text-[#f5efe6] shrink-0">
+                <div className="grid place-items-center w-8 h-8 rounded-full bg-[#efe8db] border border-[#dcd0bc] text-sm font-semibold text-[#2a2520] shrink-0">
                   J
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-[#f5efe6] truncate">Toi</div>
+                  <div className="text-sm font-semibold text-[#2a2520] truncate">Toi</div>
                   <div className="text-[13px] text-[#7a7164]">
                     <span style={{ color: div.color }}>{div.name}</span> · <span className="font-mono">{elo}</span>
                   </div>
@@ -341,34 +341,34 @@ export function CompetitiveDuelScreen() {
               </div>
               <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#7a7164] mb-1">
                 <span>Score</span>
-                <span className="font-mono text-[#f5efe6]">{state.playerScore}/{targetScore}</span>
+                <span className="font-mono text-[#2a2520]">{state.playerScore}/{targetScore}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-[#252019] overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[#efe8db] overflow-hidden">
                 <div
-                  className="h-full bg-[#ff8c42] rounded-full transition-[width] duration-400 ease-out"
+                  className="h-full bg-[#e8823d] rounded-full transition-[width] duration-400 ease-out"
                   style={{ width: `${(state.playerScore / targetScore) * 100}%` }}
                 />
               </div>
             </div>
 
             {/* Opponent panel (right) — HIDDEN by default */}
-            <div className="rounded-[10px] border border-[#4a4133] bg-[#1c1815] p-4 relative">
+            <div className="rounded-[10px] border border-[#dcd0bc] bg-[#faf6f0] p-4 relative">
               {showOpponent ? (
                 <>
                   <div className="flex items-center gap-2.5 mb-2">
-                    <div className="grid place-items-center w-8 h-8 rounded-full bg-[#252019] border border-[#4a4133] text-sm font-semibold text-[#f5efe6] shrink-0">
+                    <div className="grid place-items-center w-8 h-8 rounded-full bg-[#efe8db] border border-[#dcd0bc] text-sm font-semibold text-[#2a2520] shrink-0">
                       {opponentName.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-[#f5efe6] truncate">{opponentName}</div>
+                      <div className="text-sm font-semibold text-[#2a2520] truncate">{opponentName}</div>
                       <div className="text-[13px] text-[#7a7164]">Adversaire · <span className="font-mono">1000</span></div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#7a7164] mb-1">
                     <span>Score</span>
-                    <span className="font-mono text-[#f5efe6]">{state.opponentScore}/{targetScore}</span>
+                    <span className="font-mono text-[#2a2520]">{state.opponentScore}/{targetScore}</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-[#252019] overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-[#efe8db] overflow-hidden">
                     <div
                       className="h-full bg-[#7a7164] rounded-full transition-[width] duration-400 ease-out"
                       style={{ width: `${(state.opponentScore / targetScore) * 100}%` }}
@@ -378,19 +378,19 @@ export function CompetitiveDuelScreen() {
               ) : (
                 <>
                   <div className="flex items-center gap-2.5 mb-2">
-                    <div className="grid place-items-center w-8 h-8 rounded-full bg-[#252019] border border-[#4a4133] text-sm font-semibold text-[#7a7164] shrink-0">
+                    <div className="grid place-items-center w-8 h-8 rounded-full bg-[#efe8db] border border-[#dcd0bc] text-sm font-semibold text-[#7a7164] shrink-0">
                       ?
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-[#b8ae9e] truncate">Adversaire</div>
+                      <div className="text-sm font-semibold text-[#6b5f4f] truncate">Adversaire</div>
                       <div className="text-[13px] text-[#7a7164]">Caché</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#7a7164] mb-1">
                     <span>Score</span>
-                    <span className="font-mono text-[#b8ae9e]">{state.opponentScore}/{targetScore}</span>
+                    <span className="font-mono text-[#6b5f4f]">{state.opponentScore}/{targetScore}</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-[#252019] overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-[#efe8db] overflow-hidden">
                     <div
                       className="h-full bg-[#7a7164] rounded-full transition-[width] duration-400 ease-out"
                       style={{ width: `${(state.opponentScore / targetScore) * 100}%` }}
@@ -398,16 +398,16 @@ export function CompetitiveDuelScreen() {
                   </div>
                   {opponentThinking && (
                     <div className="absolute top-2 right-2 flex gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff8c42] animate-dot" style={{ animationDelay: "0ms" }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff8c42] animate-dot" style={{ animationDelay: "200ms" }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff8c42] animate-dot" style={{ animationDelay: "400ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#e8823d] animate-dot" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#e8823d] animate-dot" style={{ animationDelay: "200ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#e8823d] animate-dot" style={{ animationDelay: "400ms" }} />
                     </div>
                   )}
                 </>
               )}
               <button
                 onClick={() => setShowOpponent((s) => !s)}
-                className="absolute bottom-2 right-2 text-[10px] uppercase tracking-wider text-[#7a7164] hover:text-[#ff8c42] transition-colors"
+                className="absolute bottom-2 right-2 text-[10px] uppercase tracking-wider text-[#7a7164] hover:text-[#e8823d] transition-colors"
               >
                 {showOpponent ? "👁 Masquer" : "👁 Voir"}
               </button>
@@ -421,7 +421,7 @@ export function CompetitiveDuelScreen() {
                 key={k}
                 type="button"
                 onClick={() => setInput(input + k)}
-                className="h-14 rounded-md bg-[#252019] border border-[#4a4133] text-xl font-mono font-medium text-[#f5efe6] active:bg-[#ff8c42] active:text-[#14110f] transition-colors"
+                className="h-14 rounded-md bg-[#efe8db] border border-[#dcd0bc] text-xl font-mono font-medium text-[#2a2520] active:bg-[#e8823d] active:text-[#2a2520] transition-colors"
               >
                 {k}
               </button>
@@ -429,21 +429,21 @@ export function CompetitiveDuelScreen() {
             <button
               type="button"
               onClick={() => setInput(input.slice(0, -1))}
-              className="h-14 rounded-md bg-[#252019] border border-[#4a4133] text-xl text-[#b8ae9e] active:bg-[#2e2820] transition-colors"
+              className="h-14 rounded-md bg-[#efe8db] border border-[#dcd0bc] text-xl text-[#6b5f4f] active:bg-[#e8dfcd] transition-colors"
             >
               ←
             </button>
             <button
               type="button"
               onClick={() => setInput(input + "0")}
-              className="h-14 rounded-md bg-[#252019] border border-[#4a4133] text-xl font-mono font-medium text-[#f5efe6] active:bg-[#ff8c42] active:text-[#14110f] transition-colors"
+              className="h-14 rounded-md bg-[#efe8db] border border-[#dcd0bc] text-xl font-mono font-medium text-[#2a2520] active:bg-[#e8823d] active:text-[#2a2520] transition-colors"
             >
               0
             </button>
             <button
               type="button"
               onClick={submit}
-              className="h-14 rounded-md bg-[#ff8c42] border border-[#ff8c42] text-xl text-[#14110f] font-semibold active:bg-[#e5732a] transition-colors"
+              className="h-14 rounded-md bg-[#e8823d] border border-[#e8823d] text-xl text-[#2a2520] font-semibold active:bg-[#d26f2a] transition-colors"
             >
               ✓
             </button>
@@ -460,17 +460,17 @@ export function CompetitiveDuelScreen() {
             exit={{ opacity: 0 }}
             className="absolute top-12 right-3 z-40 w-80 max-w-[calc(100vw-1.5rem)]"
           >
-            <div className="rounded-xl border border-[#4a4133] bg-[#1c1815] shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#4a4133]">
-                <span className="text-xs font-medium uppercase tracking-wider text-[#b8ae9e]">📜 Journal</span>
-                <button onClick={() => setShowJournal(false)} className="text-[#7a7164] hover:text-[#f5efe6] text-sm">✕</button>
+            <div className="rounded-xl border border-[#dcd0bc] bg-[#faf6f0] shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#dcd0bc]">
+                <span className="text-xs font-medium uppercase tracking-wider text-[#6b5f4f]">📜 Journal</span>
+                <button onClick={() => setShowJournal(false)} className="text-[#7a7164] hover:text-[#2a2520] text-sm">✕</button>
               </div>
               <div className="max-h-64 overflow-y-auto scrollbar-warm p-3 font-mono text-[13px] space-y-1">
                 {state.log.slice(-30).map((e) => (
                   <div key={e.id} className="flex items-start gap-2">
                     <span className="text-[#7a7164] shrink-0">{fmtTimestamp(e.ts, matchStartTs)}</span>
                     <span className={cn("shrink-0", LOG_COLOR[e.kind])}>{LOG_ICON[e.kind]}</span>
-                    <span className={cn("min-w-0", e.side === "system" ? "text-[#7a7164] italic" : "text-[#f5efe6]")}>
+                    <span className={cn("min-w-0", e.side === "system" ? "text-[#7a7164] italic" : "text-[#2a2520]")}>
                       {e.text}
                     </span>
                   </div>
@@ -487,7 +487,7 @@ export function CompetitiveDuelScreen() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 z-50 grid place-items-center bg-[rgba(0,0,0,0.6)]"
+            className="absolute inset-0 z-50 grid place-items-center bg-[rgba(42,37,32,0.3)]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -497,11 +497,11 @@ export function CompetitiveDuelScreen() {
             >
               <div
                 className="font-display font-extrabold text-5xl sm:text-7xl"
-                style={{ color: winner === "player" ? "#ff8c42" : "#b8ae9e" }}
+                style={{ color: winner === "player" ? "#e8823d" : "#6b5f4f" }}
               >
                 {winner === "player" ? "VICTOIRE" : "DÉFAITE"}
               </div>
-              <div className="mt-2 text-lg font-mono text-[#b8ae9e]">
+              <div className="mt-2 text-lg font-mono text-[#6b5f4f]">
                 {state.playerScore} — {state.opponentScore}
               </div>
             </motion.div>
@@ -516,18 +516,18 @@ export function CompetitiveDuelScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 grid place-items-center bg-[rgba(0,0,0,0.7)] p-4"
+            className="absolute inset-0 z-50 grid place-items-center bg-[rgba(42,37,32,0.4)] p-4"
           >
             <motion.div
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4, ease: [0, 0, 0.2, 1] }}
-              className="w-full max-w-md rounded-2xl border border-[#4a4133] bg-[#1c1815] p-6"
+              className="w-full max-w-md rounded-2xl border border-[#dcd0bc] bg-[#faf6f0] p-6"
             >
               <div className="text-center mb-5">
                 <div
                   className="font-display font-extrabold text-3xl"
-                  style={{ color: winner === "player" ? "#ff8c42" : "#b8ae9e" }}
+                  style={{ color: winner === "player" ? "#e8823d" : "#6b5f4f" }}
                 >
                   {winner === "player" ? "VICTOIRE" : "DÉFAITE"}
                 </div>
@@ -536,39 +536,39 @@ export function CompetitiveDuelScreen() {
 
               {/* Stats grid */}
               <div className="space-y-2.5 mb-5">
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
-                  <span className="text-sm text-[#b8ae9e]">Score final</span>
-                  <span className="font-mono text-lg text-[#f5efe6]">{state.playerScore} — {state.opponentScore}</span>
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
+                  <span className="text-sm text-[#6b5f4f]">Score final</span>
+                  <span className="font-mono text-lg text-[#2a2520]">{state.playerScore} — {state.opponentScore}</span>
                 </div>
                 {savedInfo ? (
-                  <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
-                    <span className="text-sm text-[#b8ae9e]">Elo</span>
+                  <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
+                    <span className="text-sm text-[#6b5f4f]">Elo</span>
                     <span className="font-mono text-sm">
-                      <span className={savedInfo.eloChange >= 0 ? "text-[#6baa75]" : "text-[#d9534f]"}>
+                      <span className={savedInfo.eloChange >= 0 ? "text-[#7a9b6e]" : "text-[#b5524a]"}>
                         {savedInfo.eloChange >= 0 ? "+" : ""}{savedInfo.eloChange}
                       </span>
                       <span className="text-[#7a7164] mx-1">→</span>
-                      <span className="text-[#f5efe6]">{savedInfo.newElo}</span>
+                      <span className="text-[#2a2520]">{savedInfo.newElo}</span>
                     </span>
                   </div>
                 ) : saving ? (
-                  <div className="py-2 text-center text-xs text-[#7a7164] border-b border-[#3a3328]">Sauvegarde…</div>
+                  <div className="py-2 text-center text-xs text-[#7a7164] border-b border-[#ebe2d2]">Sauvegarde…</div>
                 ) : null}
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
-                  <span className="text-sm text-[#b8ae9e]">Vitesse moyenne</span>
-                  <span className="font-mono text-[#f5efe6]">{stats.player.avgTimeMs > 0 ? `${(stats.player.avgTimeMs / 1000).toFixed(1)}s` : "—"}</span>
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
+                  <span className="text-sm text-[#6b5f4f]">Vitesse moyenne</span>
+                  <span className="font-mono text-[#2a2520]">{stats.player.avgTimeMs > 0 ? `${(stats.player.avgTimeMs / 1000).toFixed(1)}s` : "—"}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
-                  <span className="text-sm text-[#b8ae9e]">Précision</span>
-                  <span className="font-mono text-[#f5efe6]">{stats.player.accuracy > 0 ? `${stats.player.accuracy}% (${stats.player.correct}/${stats.player.answered})` : "—"}</span>
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
+                  <span className="text-sm text-[#6b5f4f]">Précision</span>
+                  <span className="font-mono text-[#2a2520]">{stats.player.accuracy > 0 ? `${stats.player.accuracy}% (${stats.player.correct}/${stats.player.answered})` : "—"}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-[#3a3328]">
-                  <span className="text-sm text-[#b8ae9e]">Meilleur combo</span>
-                  <span className="font-mono text-[#f5efe6]">x{stats.player.bestCombo}</span>
+                <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
+                  <span className="text-sm text-[#6b5f4f]">Meilleur combo</span>
+                  <span className="font-mono text-[#2a2520]">x{stats.player.bestCombo}</span>
                 </div>
                 <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-[#b8ae9e]">Durée</span>
-                  <span className="font-mono text-[#f5efe6]">{fmtDuration(matchDurationMs)}</span>
+                  <span className="text-sm text-[#6b5f4f]">Durée</span>
+                  <span className="font-mono text-[#2a2520]">{fmtDuration(matchDurationMs)}</span>
                 </div>
               </div>
 
@@ -576,20 +576,20 @@ export function CompetitiveDuelScreen() {
               <div className="space-y-2">
                 <button
                   onClick={() => setView("classselect")}
-                  className="w-full py-2.5 rounded-lg bg-[#ff8c42] hover:bg-[#e5732a] text-[#14110f] font-semibold text-sm transition-colors"
+                  className="w-full py-2.5 rounded-lg bg-[#e8823d] hover:bg-[#d26f2a] text-[#2a2520] font-semibold text-sm transition-colors"
                 >
                   Rejouer
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setView("profile")}
-                    className="py-2 rounded-lg border border-[#4a4133] text-[#b8ae9e] hover:text-[#f5efe6] hover:border-[#5c5142] text-sm transition-colors"
+                    className="py-2 rounded-lg border border-[#dcd0bc] text-[#6b5f4f] hover:text-[#2a2520] hover:border-[#c9bba0] text-sm transition-colors"
                   >
                     📊 Analyse
                   </button>
                   <button
                     onClick={() => setView("home")}
-                    className="py-2 rounded-lg border border-[#4a4133] text-[#b8ae9e] hover:text-[#f5efe6] hover:border-[#5c5142] text-sm transition-colors"
+                    className="py-2 rounded-lg border border-[#dcd0bc] text-[#6b5f4f] hover:text-[#2a2520] hover:border-[#c9bba0] text-sm transition-colors"
                   >
                     Accueil
                   </button>

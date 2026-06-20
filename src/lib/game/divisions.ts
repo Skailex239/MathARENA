@@ -19,15 +19,15 @@ export interface Division {
 
 // 9 divisions Fer → Légende. Couleurs appliquées sobrement (texte + bordure, jamais en fond saturé).
 export const DIVISIONS: Division[] = [
-  { name: "Fer", tier: "IRON", min: 0, color: "#7a7164" },
-  { name: "Bronze", tier: "BRONZE", min: 900, color: "#cd7f32" },
-  { name: "Argent", tier: "SILVER", min: 1100, color: "#b8ae9e" },
-  { name: "Or", tier: "GOLD", min: 1300, color: "#e5a847" },
-  { name: "Platine", tier: "PLATINUM", min: 1500, color: "#6baa9c" },
-  { name: "Diamant", tier: "DIAMOND", min: 1700, color: "#8ecae6" },
-  { name: "Maître", tier: "MASTER", min: 1900, color: "#c8a8e9" },
-  { name: "Grand Maître", tier: "GRANDMASTER", min: 2100, color: "#e5732a" },
-  { name: "Légende", tier: "LEGEND", min: 2300, color: "#f5deb3" },
+  { name: "Fer", tier: "IRON", min: 0, color: "#9c8e7a" },
+  { name: "Bronze", tier: "BRONZE", min: 900, color: "#b5722e" },
+  { name: "Argent", tier: "SILVER", min: 1100, color: "#7a7268" },
+  { name: "Or", tier: "GOLD", min: 1300, color: "#c9974a" },
+  { name: "Platine", tier: "PLATINUM", min: 1500, color: "#5e8a7a" },
+  { name: "Diamant", tier: "DIAMOND", min: 1700, color: "#5a7a9c" },
+  { name: "Maître", tier: "MASTER", min: 1900, color: "#8a6a9c" },
+  { name: "Grand Maître", tier: "GRANDMASTER", min: 2100, color: "#d26f2a" },
+  { name: "Légende", tier: "LEGEND", min: 2300, color: "#e8823d" },
 ];
 
 export function divisionFor(elo: number): Division {
