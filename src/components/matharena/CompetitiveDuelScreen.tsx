@@ -4,11 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useCompetitiveDuel } from "@/hooks/useCompetitiveDuel";
 import { useApp } from "@/lib/store";
 import { CATEGORY_LABEL, DIFFICULTY_LABEL } from "@/lib/game/math";
-import { Btn, RankBadge } from "./ui";
-import { DuelLog } from "./DuelLog";
-import { cn } from "@/lib/utils";
+import { PlayerPanel } from "./PlayerPanel";
+import { NumericKeypad } from "./NumericKeypad";
 import type { CompLogEntry } from "@/lib/game/competitive-engine";
-import type { DuelLogEntry } from "@/lib/game/types";
+import { cn } from "@/lib/utils";
 
 const MODE_LABEL: Record<string, string> = {
   PRACTICE: "Entraînement",
@@ -17,22 +16,26 @@ const MODE_LABEL: Record<string, string> = {
   RANKED: "Classé",
 };
 
-// Adaptateur : convertit les entrées du log compétitif vers le format DuelLog.
-function toDuelLogEntries(entries: CompLogEntry[]): DuelLogEntry[] {
-  const kindMap: Record<CompLogEntry["kind"], DuelLogEntry["kind"]> = {
-    point: "hit",
-    miss: "miss",
-    lockout: "miss",
-    timeout: "miss",
-    info: "info",
-  };
-  return entries.map((e) => ({
-    id: e.id,
-    side: e.side,
-    text: e.text,
-    kind: kindMap[e.kind],
-    ts: e.ts,
-  }));
+const LOG_ICON: Record<CompLogEntry["kind"], string> = {
+  point: "✓",
+  miss: "✗",
+  timeout: "⏱",
+  combo: "🔥",
+  info: "·",
+};
+const LOG_COLOR: Record<CompLogEntry["kind"], string> = {
+  point: "text-[#e6edf3]",
+  miss: "text-[#f85149]",
+  timeout: "text-[#f85149]",
+  combo: "text-[#d29922]",
+  info: "text-[#6e7681]",
+};
+
+function fmtTimestamp(ts: number, start: number): string {
+  const sec = Math.max(0, Math.floor((ts - start) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 export function CompetitiveDuelScreen() {
@@ -42,8 +45,13 @@ export function CompetitiveDuelScreen() {
   const setLastResult = useApp((s) => s.setLastResult);
 
   const [elo, setElo] = useState(1000);
+  const [muted, setMuted] = useState(true);
+  const [latency] = useState(28);
   useEffect(() => {
-    fetch("/api/profile").then((r) => r.json()).then((p) => setElo(p?.eloCompetitive ?? p?.elo ?? 1000)).catch(() => {});
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((p) => setElo(p?.eloCompetitive ?? p?.elo ?? 1000))
+      .catch(() => {});
   }, []);
 
   const duel = useCompetitiveDuel({
@@ -56,16 +64,40 @@ export function CompetitiveDuelScreen() {
     onQuit: () => setView("home"),
   });
 
-  const { state, timeLeftMs, opponentThinking, flash, input, setInput, submit } = duel;
+  const {
+    state,
+    timeLeftMs,
+    opponentThinking,
+    flash,
+    input,
+    setInput,
+    submit,
+    targetScore,
+    stats,
+    matchStartTs,
+  } = duel;
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (state.phase === "question" && !state.playerLocked) inputRef.current?.focus();
-  }, [state.phase, state.questionIndex, state.playerLocked]);
+    if (state.phase === "question") inputRef.current?.focus();
+  }, [state.phase, state.questionIndex]);
+
+  // Escape = quit confirmation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (confirm("Abandonner le duel ?")) duel.quit();
+      }
+      if (e.key === "m" || e.key === "M") setMuted((m) => !m);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [duel]);
 
   if (!state.question) {
     return (
-      <div className="min-h-screen grid place-items-center bg-[#0e1116] text-[#9ba4b0] text-sm">
+      <div className="h-screen grid place-items-center bg-[#0e1116] text-[#9ba4b0] text-sm">
         Chargement…
       </div>
     );
@@ -73,98 +105,189 @@ export function CompetitiveDuelScreen() {
 
   const timePct = Math.max(0, Math.min(100, (timeLeftMs / state.timeLimitMs) * 100));
   const urgent = timeLeftMs <= 3000 && timeLeftMs > 0;
-  const timerColor = urgent ? "#f85149" : timePct > 40 ? "#e6edf3" : "#d29922";
-  const locked = state.phase !== "question" || state.playerLocked;
+  const warning = timeLeftMs <= 5000 && timeLeftMs > 3000;
+  const timerColor = urgent ? "#F85149" : warning ? "#D29922" : "#E6EDF3";
+
+  const inputBorder =
+    flash === "wrong"
+      ? "border-[#f85149] animate-shake"
+      : flash === "correct"
+        ? "border-[#2ea043]"
+        : "border-[#2d333b] focus:border-[#3b82f6]";
+
+  const modeLabel = MODE_LABEL[state.mode] ?? state.mode;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0e1116]">
-      {/* Top bar */}
-      <header className="border-b border-[#2d333b] bg-[#0e1116]">
-        <div className="mx-auto max-w-3xl px-4 h-12 grid grid-cols-3 items-center">
-          <button onClick={duel.quit} className="text-sm text-[#9ba4b0] hover:text-[#f85149] justify-self-start">
-            ✕ Abandonner
+    <div className="h-screen flex flex-col bg-[#0e1116] overflow-hidden">
+      {/* ===== TOP BAR (48px) ===== */}
+      <header className="h-12 shrink-0 border-b border-[#2d333b] bg-[#0e1116] flex items-center px-4 gap-3">
+        <button
+          onClick={() => {
+            if (confirm("Abandonner le duel ?")) duel.quit();
+          }}
+          className="text-sm text-[#9ba4b0] hover:text-[#f85149] transition-colors flex items-center gap-1"
+        >
+          ← Abandonner
+        </button>
+        <div className="flex-1 text-center text-[13px] font-medium text-[#9ba4b0]">
+          {modeLabel} · Compétitif · Premier à {targetScore}
+        </div>
+        <div className="flex items-center gap-3 text-[13px] text-[#9ba4b0]">
+          <button
+            onClick={() => setMuted((m) => !m)}
+            className="hover:text-[#e6edf3] transition-colors"
+            title="Muet (M)"
+          >
+            {muted ? "🔇" : "🔊"}
           </button>
-          <div className="flex flex-col items-center">
-            <span
-              className={cn("font-mono font-medium text-xl leading-none", urgent && "animate-timer-urgent")}
-              style={{ color: timerColor }}
-            >
-              {(timeLeftMs / 1000).toFixed(1)}s
-            </span>
-            <span className="text-[10px] text-[#6e7681] mt-0.5">Question {state.questionIndex + 1}</span>
-          </div>
-          <span className="text-xs text-[#9ba4b0] justify-self-end">
-            {MODE_LABEL[state.mode] ?? state.mode} · Compétitif
+          <span className="font-mono text-[12px] flex items-center gap-1" title="Latence">
+            📶 {latency}ms
           </span>
         </div>
       </header>
 
-      {/* Score panel (à la Chess.com : deux noms + score centré) */}
-      <div className="mx-auto max-w-3xl w-full px-4 pt-4">
-        <div className="rounded-lg border border-[#2d333b] bg-[#161b22] p-3">
-          <div className="grid grid-cols-3 items-center gap-2">
-            {/* Joueur */}
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-medium text-sm text-[#e6edf3] truncate">Toi</span>
-              <RankBadge elo={elo} />
-            </div>
-            {/* Score centré */}
-            <div className="flex items-center justify-center gap-3">
-              <span className={cn("font-mono text-3xl font-medium", state.playerScore >= state.opponentScore ? "text-[#3b82f6]" : "text-[#9ba4b0]")}>
-                {state.playerScore}
-              </span>
-              <span className="text-[#6e7681] text-sm">—</span>
-              <span className={cn("font-mono text-3xl font-medium", state.opponentScore > state.playerScore ? "text-[#f85149]" : "text-[#9ba4b0]")}>
-                {state.opponentScore}
-              </span>
-            </div>
-            {/* Adversaire */}
-            <div className="flex items-center gap-2 justify-end min-w-0">
-              {opponentThinking && <span className="text-[10px] text-[#6e7681]">…</span>}
-              <span className="font-medium text-sm text-[#e6edf3] truncate text-right">{opponentName}</span>
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1.5">
-            <span className="text-[10px] text-[#6e7681] shrink-0">Premier à {duel.targetScore}</span>
-            <div className="flex-1 h-1 rounded-sm bg-[#1c2128] overflow-hidden">
-              <div className="h-full bg-[#3b82f6]" style={{ width: `${(state.playerScore / duel.targetScore) * 100}%` }} />
-            </div>
-            <div className="flex-1 h-1 rounded-sm bg-[#1c2128] overflow-hidden">
-              <div className="h-full bg-[#f85149] ml-auto" style={{ width: `${(state.opponentScore / duel.targetScore) * 100}%` }} />
-            </div>
-            <span className="text-[10px] text-[#6e7681] shrink-0">points</span>
-          </div>
+      {/* ===== MAIN (flex-grow) ===== */}
+      <main className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+        {/* Panneaux joueurs — mobile : strip horizontal */}
+        <div className="lg:hidden grid grid-cols-2 gap-2 p-3">
+          <PlayerPanel
+            name="Toi"
+            elo={elo}
+            score={state.playerScore}
+            targetScore={targetScore}
+            combo={state.playerCombo}
+            avgTimeMs={stats.player.avgTimeMs}
+            accuracy={stats.player.accuracy}
+            side="left"
+            isMe
+            shake={flash === "wrong"}
+          />
+          <PlayerPanel
+            name={opponentName}
+            elo={1000}
+            score={state.opponentScore}
+            targetScore={targetScore}
+            combo={state.opponentCombo}
+            avgTimeMs={stats.opponent.avgTimeMs}
+            accuracy={stats.opponent.accuracy}
+            side="right"
+            thinking={opponentThinking}
+            shake={flash === "correct"}
+          />
         </div>
-      </div>
 
-      {/* Question + input */}
-      <div className="mx-auto max-w-3xl w-full px-4 pt-4">
-        <div className="rounded-lg border border-[#2d333b] bg-[#161b22] p-6">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1c2128] border border-[#2d333b] text-[#6e7681] uppercase tracking-wide">
-              {CATEGORY_LABEL[state.question.category]}
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1c2128] border border-[#2d333b] text-[#6e7681] uppercase tracking-wide">
-              {DIFFICULTY_LABEL[state.question.difficulty]}
-            </span>
+        {/* Desktop : 3 colonnes (panneau | centre | panneau) */}
+        <div className="hidden lg:grid lg:grid-cols-[280px_1fr_280px] gap-5 p-5 h-full">
+          <PlayerPanel
+            name="Toi"
+            elo={elo}
+            score={state.playerScore}
+            targetScore={targetScore}
+            combo={state.playerCombo}
+            avgTimeMs={stats.player.avgTimeMs}
+            accuracy={stats.player.accuracy}
+            side="left"
+            isMe
+            shake={flash === "wrong"}
+          />
+
+          {/* Zone centrale */}
+          <div className="flex flex-col items-center justify-center gap-4 min-h-0">
+            {/* Timer */}
+            <div
+              className={cn("font-mono font-bold text-3xl leading-none", urgent && "animate-timer-urgent")}
+              style={{ color: timerColor }}
+            >
+              {(timeLeftMs / 1000).toFixed(1)}s
+            </div>
+
+            {/* Métadonnées discrètes (pas en badges) */}
+            <div className="text-[12px] font-medium uppercase tracking-wider text-[#6e7681] text-center">
+              Question {state.questionIndex + 1} · {CATEGORY_LABEL[state.question.category]} · {DIFFICULTY_LABEL[state.question.difficulty]}
+            </div>
+
+            {/* Question */}
+            <div className="rounded-xl border border-[#2d333b] bg-[#161b22] px-12 py-10 max-w-[640px] w-full text-center">
+              <div className="font-mono font-bold text-5xl xl:text-6xl text-[#e6edf3]">
+                {state.question.text.endsWith("?") ? (
+                  state.question.text
+                ) : (
+                  <>
+                    {state.question.text} = <span className="text-[#6e7681]">?</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Input (auto-validation, pas de bouton) */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submit();
+              }}
+              className="w-full max-w-[640px]"
+            >
+              <input
+                ref={inputRef}
+                inputMode="numeric"
+                pattern="-?[0-9]*"
+                value={input}
+                onChange={(e) => setInput(e.target.value.replace(/[^0-9-]/g, ""))}
+                placeholder="—"
+                autoComplete="off"
+                className={cn(
+                  "w-full text-center font-mono font-bold text-4xl xl:text-5xl bg-[#1c2128] border-2 rounded-[10px] px-5 py-4 outline-none transition-colors",
+                  inputBorder,
+                )}
+              />
+            </form>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-[#6e7681]">
+              Validation automatique · ⌨ Entrée
+            </div>
           </div>
 
-          <div className="text-center font-mono font-medium text-3xl sm:text-4xl text-[#e6edf3]">
-            {state.question.text.endsWith("?") ? (
-              state.question.text
-            ) : (
-              <>
-                {state.question.text} = <span className="text-[#6e7681]">?</span>
-              </>
-            )}
-          </div>
+          <PlayerPanel
+            name={opponentName}
+            elo={1000}
+            score={state.opponentScore}
+            targetScore={targetScore}
+            combo={state.opponentCombo}
+            avgTimeMs={stats.opponent.avgTimeMs}
+            accuracy={stats.opponent.accuracy}
+            side="right"
+            thinking={opponentThinking}
+            shake={flash === "correct"}
+          />
+        </div>
 
+        {/* Mobile : zone centrale */}
+        <div className="lg:hidden flex flex-col items-center gap-3 px-4 pt-2 pb-4">
+          <div
+            className={cn("font-mono font-bold text-2xl leading-none", urgent && "animate-timer-urgent")}
+            style={{ color: timerColor }}
+          >
+            {(timeLeftMs / 1000).toFixed(1)}s
+          </div>
+          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6e7681] text-center">
+            Question {state.questionIndex + 1} · {CATEGORY_LABEL[state.question.category]} · {DIFFICULTY_LABEL[state.question.difficulty]}
+          </div>
+          <div className="rounded-xl border border-[#2d333b] bg-[#161b22] px-6 py-6 w-full text-center">
+            <div className="font-mono font-bold text-4xl text-[#e6edf3]">
+              {state.question.text.endsWith("?") ? (
+                state.question.text
+              ) : (
+                <>
+                  {state.question.text} = <span className="text-[#6e7681]">?</span>
+                </>
+              )}
+            </div>
+          </div>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               submit();
             }}
-            className="mt-4 flex items-center justify-center gap-2"
+            className="w-full"
           >
             <input
               ref={inputRef}
@@ -172,32 +295,63 @@ export function CompetitiveDuelScreen() {
               pattern="-?[0-9]*"
               value={input}
               onChange={(e) => setInput(e.target.value.replace(/[^0-9-]/g, ""))}
-              disabled={locked}
-              placeholder={state.playerLocked ? "Verrouillé" : "Réponse"}
+              placeholder="—"
               autoComplete="off"
               className={cn(
-                "w-48 sm:w-64 text-center text-2xl font-mono font-medium bg-[#1c2128] border rounded-md px-3 py-2 outline-none transition-colors",
-                flash === "wrong"
-                  ? "border-[#f85149] animate-shake"
-                  : flash === "correct"
-                    ? "border-[#2ea043]"
-                    : "border-[#2d333b] focus:border-[#3b82f6]",
-                state.playerLocked && "border-[#6e7681] text-[#6e7681]",
-                "disabled:opacity-50",
+                "w-full text-center font-mono font-bold text-3xl bg-[#1c2128] border-2 rounded-[10px] px-4 py-3 outline-none transition-colors",
+                inputBorder,
               )}
             />
-            <Btn type="submit" disabled={locked || input.trim() === ""}>
-              Valider
-            </Btn>
           </form>
+          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6e7681]">
+            ⌨ Entrée pour valider
+          </div>
         </div>
-      </div>
+      </main>
 
-      {/* Log */}
-      <div className="flex-1 mx-auto max-w-3xl w-full px-4 pt-4 pb-4">
-        <div className="h-40">
-          <DuelLog entries={toDuelLogEntries(state.log)} />
+      {/* ===== BOTTOM BAR (log + stats) — desktop ===== */}
+      <footer className="hidden lg:flex shrink-0 h-[180px] border-t border-[#2d333b] bg-[#161b22]">
+        <div className="flex-1 flex flex-col min-w-0 p-4">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6e7681] mb-2">
+            📜 Journal de match
+          </div>
+          <div className="flex-1 overflow-y-auto scrollbar-thin font-mono text-[13px] space-y-0.5 pr-2">
+            {state.log.slice(-30).map((e) => (
+              <div key={e.id} className="flex items-start gap-2">
+                <span className="text-[#6e7681] shrink-0">{fmtTimestamp(e.ts, matchStartTs)}</span>
+                <span className={cn("shrink-0", LOG_COLOR[e.kind])}>{LOG_ICON[e.kind]}</span>
+                <span className={cn("truncate", e.side === "system" ? "text-[#6e7681] italic" : "text-[#e6edf3]")}>
+                  {e.text}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
+        <div className="w-[280px] border-l border-[#2d333b] p-4 flex flex-col gap-2">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6e7681] mb-1">
+            Stats live
+          </div>
+          {[
+            { l: "Vitesse moyenne", v: stats.player.avgTimeMs > 0 ? `${(stats.player.avgTimeMs / 1000).toFixed(1)}s` : "—", c: "text-[#e6edf3]" },
+            { l: "Précision", v: stats.player.accuracy > 0 ? `${stats.player.accuracy}%` : "—", c: "text-[#e6edf3]" },
+            { l: "Meilleur combo", v: `x${state.playerCombo}`, c: "text-[#e6edf3]" },
+            { l: "Score", v: `${state.playerScore} - ${state.opponentScore}`, c: "text-[#3b82f6]" },
+          ].map((s) => (
+            <div key={s.l} className="flex items-center justify-between text-[13px]">
+              <span className="text-[#9ba4b0]">{s.l}</span>
+              <span className={cn("font-mono", s.c)}>{s.v}</span>
+            </div>
+          ))}
+        </div>
+      </footer>
+
+      {/* Mobile : pavé numérique + log collapsible */}
+      <div className="lg:hidden shrink-0 border-t border-[#2d333b] bg-[#161b22] p-3 space-y-2">
+        <NumericKeypad
+          onKey={(k) => setInput(input + k)}
+          onBackspace={() => setInput(input.slice(0, -1))}
+          onSubmit={submit}
+        />
       </div>
     </div>
   );

@@ -372,3 +372,18 @@ Work Log:
 
 Stage Summary:
 - Vérifié Agent Browser : switcher d'univers OK, duel compétitif (VICTOIRE 7-2, Elo 1000→1016, sauvegardé), duel arène (DÉFAITE BLITZ, Elo arène 1000→968, sauvegardé), profil dual elos, leaderboard toggle (comp: NeuroBlade#1 1480 / arène: PyroMath#1 1460). Lint 0 erreurs. DB reset. Push sur main.
+
+---
+Task ID: competitive-duel-refonte (1-6)
+Agent: main (Z.ai Code)
+Task: Refonte complète du duel compétitif — layout full-viewport, panneaux structurés, auto-validation.
+
+Work Log:
+- competitive-engine.ts : ajout combo (playerCombo/opponentCombo, milestones x3/x5/x8/x10), retrait lockout (mauvaise réponse = combo reset + retry), matchStartTs pour logs horodatés, timeoutQuestion (révèle la réponse), logs enrichis ("✓ Toi — réponse en X.Xs — N points").
+- useCompetitiveDuel.ts : no-lockout, combo tracking, expose playerStats+opponentStats (avgTimeMs, accuracy), auto-clear wrong 500ms, matchStartTs exposé.
+- PlayerPanel.tsx : avatar cercle + nom + rang+elo (couleur division) + score/7 + barre progression BLEUE (jamais rouge) + combo (couleur selon milestone) + vitesse + précision + indicateur "en train de calculer" (3 points bleus pulsants).
+- NumericKeypad.tsx : pavé 3×4 (1-9, ←, 0, ✓) mobile, 64px, bleu sur press.
+- CompetitiveDuelScreen refonte : grille 3 lignes (top bar 48px / main flex-grow / footer 180px) full-viewport. Top bar (abandonner + "Rapide · Compétitif · Premier à 7" + mute + latence 📶28ms). Desktop : 3 colonnes (panneau | centre | panneau). Centre : timer hiérarchique (blanc > ambre 3-5s > rouge <3s + pulse) + métadonnées discrètes (pas badges) + question 72px mono + input 56px mono auto-focus SANS bouton Valider + hint clavier. Footer : journal horodaté [00:14] ✓ message + stats live. Mobile : panneaux en strip horizontal + pavé numérique. Escape=quit, M=mute.
+
+Stage Summary:
+- Vérifié Agent Browser + VLM : layout desktop full-viewport (top bar, panneaux L/R structurés avec score/7 + barre bleue + combo + vitesse + précision + indicateur calcul adverse, timer central, question héros, input auto-validation sans bouton, journal horodaté, stats live, PAS de vide). Mobile : pavé numérique + strip horizontal, pas d'overflow. Duel se termine et se sauvegarde (Elo compétitif mis à jour). Lint 0 erreurs. DB reset. Push sur main.

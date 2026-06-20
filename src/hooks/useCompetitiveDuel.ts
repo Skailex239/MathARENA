@@ -8,14 +8,21 @@ import {
   isCompGameOver,
   opponentFire,
   playerSubmit,
+  timeoutQuestion,
   type CompDuelState,
-  type CompStats,
   TARGET_SCORE,
 } from "@/lib/game/competitive-engine";
 import type { MatchResultPayload } from "@/lib/store";
 
 const ADVANCE_DELAY = 700;
 const TICK_MS = 90;
+const WRONG_CLEAR_DELAY = 500;
+
+export interface DuelStats {
+  answered: number;
+  correct: number;
+  totalTimeMs: number;
+}
 
 export interface UseCompDuelOpts {
   mode: GameMode;
@@ -35,14 +42,15 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
 
   const stateRef = useRef(state);
   const inputRef = useRef("");
-  // La question est "résolue" (quelqu'un a marqué, ou timeout, ou les deux verrouillés).
   const resolvedRef = useRef(false);
   const opponentDoneRef = useRef(false);
   const opponentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wrongClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionStart = useRef(Date.now());
-  const stats = useRef<CompStats>({ answered: 0, correct: 0, totalTimeMs: 0 });
+  const playerStats = useRef<DuelStats>({ answered: 0, correct: 0, totalTimeMs: 0 });
+  const opponentStats = useRef<DuelStats>({ answered: 0, correct: 0, totalTimeMs: 0 });
   const finished = useRef(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onFinishRef = useRef(onFinish);
@@ -53,7 +61,6 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   onQuitRef.current = onQuit;
 
   const commit = (ns: CompDuelState) => {
-    // Garde-fou : ne jamais commit un état sans question (sauf gameover explicite).
     if (!ns.question && ns.phase !== "gameover") return;
     stateRef.current = ns;
     setState(ns);
@@ -61,13 +68,14 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   const triggerFlash = (k: "correct" | "wrong") => {
     setFlash(k);
     if (flashTimer.current) clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setFlash(null), 450);
+    flashTimer.current = setTimeout(() => setFlash(null), 300);
   };
   const clearTimers = () => {
     if (opponentTimer.current) clearTimeout(opponentTimer.current);
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     if (countdownTimer.current) clearInterval(countdownTimer.current);
     if (flashTimer.current) clearTimeout(flashTimer.current);
+    if (wrongClearTimer.current) clearTimeout(wrongClearTimer.current);
     opponentTimer.current = null;
     advanceTimer.current = null;
     countdownTimer.current = null;
@@ -83,7 +91,7 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     clearTimers();
     const s = stateRef.current;
     const won = s.playerScore >= TARGET_SCORE;
-    const st = stats.current;
+    const st = playerStats.current;
     onFinishRef.current({
       universe: "competitive",
       result: won ? "WIN" : "LOSE",
@@ -101,7 +109,6 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
 
   const maybeAdvance = () => {
     if (finished.current) return;
-    // Avance quand la question est résolue ET l'adversaire a joué (ou n'a plus à jouer).
     if (!resolvedRef.current || !opponentDoneRef.current) return;
     if (isCompGameOver(stateRef.current)) {
       finalize();
@@ -124,29 +131,30 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     if (!stateRef.current.question) return;
     clearQuestionTimers();
     resolvedRef.current = true;
-    setOpponentThinking(false);
     opponentDoneRef.current = true;
+    setOpponentThinking(false);
     triggerFlash("wrong");
-    stats.current.answered += 1;
-    const prev = stateRef.current;
-    commit({
-      ...prev,
-      log: [...prev.log, { id: Date.now(), side: "system" as const, text: "Temps écoulé — question annulée", kind: "timeout" as const, ts: Date.now() }],
-    });
+    playerStats.current.answered += 1;
+    const ns = timeoutQuestion(stateRef.current);
+    commit({ ...ns, log: [...ns.log] });
     maybeAdvance();
   };
 
   const handleOpponentFire = () => {
     if (finished.current || opponentDoneRef.current || resolvedRef.current) return;
     if (!stateRef.current.question || !stateRef.current.opponentPlan) return;
-    const ns = opponentFire(stateRef.current);
-    commit(ns.state);
+    const r = opponentFire(stateRef.current);
+    commit(r.state);
     opponentDoneRef.current = true;
     setOpponentThinking(false);
-    // Si l'adversaire marque, la question est résolue (le joueur ne peut plus marquer).
-    resolvedRef.current = true;
-    clearQuestionTimers();
-    if (isCompGameOver(ns)) {
+    opponentStats.current.answered += 1;
+    if (r.scored) {
+      opponentStats.current.correct += 1;
+      opponentStats.current.totalTimeMs += r.thinkMs;
+      resolvedRef.current = true;
+      clearQuestionTimers();
+    }
+    if (isCompGameOver(r.state)) {
       finalize();
       return;
     }
@@ -184,32 +192,36 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   const submit = () => {
     if (finished.current || resolvedRef.current) return;
     if (stateRef.current.phase !== "question") return;
-    if (stateRef.current.playerLocked) return;
     const val = inputRef.current.trim();
     if (val === "") return;
     const timeMs = Date.now() - questionStart.current;
     const r = playerSubmit(stateRef.current, val, timeMs);
     commit(r.state);
-    stats.current.answered += 1;
+    playerStats.current.answered += 1;
     if (r.correct) {
-      stats.current.correct += 1;
-      stats.current.totalTimeMs += timeMs;
+      playerStats.current.correct += 1;
+      playerStats.current.totalTimeMs += timeMs;
       resolvedRef.current = true;
       clearQuestionTimers();
-      // Le joueur marque → l'adversaire n'a plus à jouer.
       opponentDoneRef.current = true;
       setOpponentThinking(false);
       triggerFlash("correct");
+      inputRef.current = "";
+      setInput("");
     } else if (r.timedOut) {
       resolvedRef.current = true;
       opponentDoneRef.current = true;
       clearQuestionTimers();
       triggerFlash("wrong");
     } else {
-      // Mauvaise réponse → lockout joueur. La question n'est PAS résolue :
-      // l'adversaire peut encore marquer.
+      // Mauvaise réponse : combo reset, retry autorisé (question continue).
       triggerFlash("wrong");
-      // On NE clear pas le countdown : l'adversaire a sa chance jusqu'au timeout.
+      // Auto-clear après 500ms pour permettre de retaper.
+      if (wrongClearTimer.current) clearTimeout(wrongClearTimer.current);
+      wrongClearTimer.current = setTimeout(() => {
+        inputRef.current = "";
+        setInput("");
+      }, WRONG_CLEAR_DELAY);
     }
     if (isCompGameOver(r.state)) {
       clearQuestionTimers();
@@ -222,7 +234,8 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   // init
   useEffect(() => {
     finished.current = false;
-    stats.current = { answered: 0, correct: 0, totalTimeMs: 0 };
+    playerStats.current = { answered: 0, correct: 0, totalTimeMs: 0 };
+    opponentStats.current = { answered: 0, correct: 0, totalTimeMs: 0 };
     startQuestionRef.current(stateRef.current);
     return () => {
       clearTimers();
@@ -232,6 +245,33 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   const quit = () => {
     clearTimers();
     onQuitRef.current();
+  };
+
+  const stats = {
+    player: {
+      answered: playerStats.current.answered,
+      correct: playerStats.current.correct,
+      avgTimeMs:
+        playerStats.current.correct > 0
+          ? Math.round(playerStats.current.totalTimeMs / playerStats.current.correct)
+          : 0,
+      accuracy:
+        playerStats.current.answered > 0
+          ? Math.round((playerStats.current.correct / playerStats.current.answered) * 100)
+          : 0,
+    },
+    opponent: {
+      answered: opponentStats.current.answered,
+      correct: opponentStats.current.correct,
+      avgTimeMs:
+        opponentStats.current.correct > 0
+          ? Math.round(opponentStats.current.totalTimeMs / opponentStats.current.correct)
+          : 0,
+      accuracy:
+        opponentStats.current.answered > 0
+          ? Math.round((opponentStats.current.correct / opponentStats.current.answered) * 100)
+          : 0,
+    },
   };
 
   return {
@@ -247,5 +287,7 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     submit,
     quit,
     targetScore: TARGET_SCORE,
+    stats,
+    matchStartTs: state.matchStartTs,
   };
 }
