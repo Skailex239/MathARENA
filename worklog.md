@@ -305,3 +305,70 @@ Work Log:
 
 Stage Summary:
 - Vérifié Agent Browser + VLM : home sobre dashboard (pas mobile-game, 3 couleurs max, cards plates, tables denses), duel minimal dense, results/profile/leaderboard/rules sobres. Mobile 390px validé (pas d'overflow, duel lisible). Lint 0 erreurs. DB reset. Push sur main.
+
+---
+Task ID: 8
+Agent: ui-dual-universe-profile-leaderboard (general-purpose)
+Task: Adapt Profile (dual elos + stats 2 univers) + Leaderboard (toggle univers) pour les deux univers.
+
+Work Log:
+- Lecture du worklog (contexte : design system sobre Chess.com/Linear déjà posé via globals.css + ui.tsx + divisions.ts ; backend dual-universe déjà en place côté schema.prisma + routes API + store + api.ts). Lecture des fichiers de référence : ui.tsx (primitives Btn/Panel/PageTitle/SectionLabel/StatTile/RankBadge/Tabs/DataTable), api.ts (Profile avec eloCompetitive/eloArena/winsArena/lossesArena/winrateArena/totalMatchesArena + MatchRecord avec universe/playerClass=null en compétitif + LeaderboardEntry avec elo de l'univers sélectionné), store.ts (universe + setUniverse + view + setView), divisions.ts (divisionFor(elo)), progression.ts (type Universe = "competitive"|"arena"), classes.ts (CLASSES record), page.tsx (router view), leaderboard/route.ts (orderBy elo vs eloArena), matches/route.ts (universe filter).
+- Réécriture de `src/components/matharena/LeaderboardScreen.tsx` (~170 lignes) :
+  - Toggle d'univers en haut via `Tabs` (Compétitif / Arène) synchronisé avec `useApp` (`universe` + `setUniverse`). Au changement, `useEffect([universe])` déclenche `reload(universe)` qui appelle `api.getLeaderboard(universe)`. L'univers est donc global (partagé avec les autres écrans via le store).
+  - Header : PageTitle "Classement" + sous-titre dynamique selon l'univers ("Elo officiel — pur skill, sans sorts ni classes." / "Elo arène — gaming, classes, sorts et combos."). Btn "Nouveau duel" → setView('classselect').
+  - Table dense full-width via `DataTable<LeaderboardRow>` : 9 colonnes Rang (# dans badge w-6 h-6 coloré or/argent/bronze)/Joueur (nom + badge "Toi" bleu si isMe + badge "Bot" neutre si isBot)/Division (RankBadge(e.elo) qui utilise l'elo de l'univers sélectionné)/Elo (font-mono)/Niveau (font-mono)/Parties (V+D)/V (#2ea043 mono)/D (#f85149 mono)/Winrate (mono %). PAS de podium décoratif. Ligne isMe surlignée (rgba(59,130,246,0.08)) via prop `highlight` (utiliser un champ `_isMe?: boolean` dans le type row + `Boolean(r._isMe)` pour rester typé sans `any`).
+  - États : loading=skeleton (lignes gris anim-pulse), error=Panel + AlertCircle rouge + Btn "Réessayer" → `reload(universe)`, empty=Panel sobre "Aucun joueur dans ce classement."
+  - Note bas de page dynamique selon l'univers. Scroll-x scrollbar-thin mobile via DataTable.
+- Réécriture de `src/components/matharena/ProfileScreen.tsx` (~640 lignes) :
+  - Layout sidebar desktop (w-[200px] sticky top-20) + barre horizontale scrollable (scrollbar-none) sur mobile. Nav 5 items : Vue d'ensemble / Statistiques / Parties (réels) + Succès / Réglages (état "Bientôt disponible" sobre via ComingSoon).
+  - Overview :
+    - ProfileHeader : nom éditable (Pencil → Input + Save via api.patchProfile, Echap annule, Entrée sauve, maxLength 24, toast sonner) + titre italique gris si présent + DEUX RankBadge côte à côte avec labels "Compétitif" (eloCompetitive) / "Arène" (eloArena) + ligne Elo compétitif/Arène/Niveau en font-mono + bloc XP à droite (barre custom bleu #3B82F6, pas de gradient).
+    - Section StatTiles "Statistiques · Compétitif" (7 tuiles en grille xl:grid-cols-7) : Elo / Parties / V / D / Winrate / Vitesse moyenne (calculée sur matchs compétitifs) / Précision (calculée sur matchs compétitifs).
+    - Section StatTiles "Statistiques · Arène" (7 tuiles) : Elo arène / Parties / V / D / Winrate / Meilleur combo (profile.bestCombo) / Classe préférée (calculée depuis les playerClass des matchs d'arène, fallback profile.class).
+    - Section "Historique du rating" : LineChart Recharts sobre (ligne #3B82F6, pas de gradient fill, axes #6e7681, grid #232a33, tooltip sombre #161b22, Y domain "dataMin-20"→"dataMax+20") hauteur 220px. Toggle Compétitif/Arène via Tabs local (ratingUniverse state, défaut "competitive"). Data = matchs filtrés par l'univers sélectionné, triés date asc, X=n° match, Y=eloAfter.
+    - Section "Parties récentes" : DataTable dense 9 colonnes (Date relative fr / Univers badge "Comp" bleu ou "Arène" neutre via UniverseBadge / Adversaire / Classe via ClassCell qui affiche "—" si playerClass null / Résultat WIN #2ea043 LOSE #f85149 / Elo ± via EloChange coloré / Combo via ComboCell qui affiche "—" en compétitif / Temps mono / Mode). 10 derniers matchs. Empty state si 0 match (Panel + Clock + "Aucune partie jouée" + Btn "Jouer" → setView('classselect')).
+  - Stats tab : 2 BarCharts Recharts sobres (wins #2ea043 / losses #f85149 stackés, grid #232a33, axes #6e7681, Legend) hauteur 240px — un pour les modes compétitifs, un pour les modes arène. + DataTable "Statistiques par mode" (compétitif uniquement : Mode/Parties/V/D/Winrate/Temps moyen/Précision) construite via helper pur `buildModeStats(matches, universe)`. + 4 StatTiles profil global (Elo compétitif / Elo arène / Niveau / Meilleur combo).
+  - Games tab : DataTable complète 11 colonnes (Date/Univers/Adversaire/Classe/Adv. classe/Résultat/Elo ±/Combo/Temps/Précision/Mode) avec scroll-x scrollbar-thin.
+  - Achievements/Settings tabs : Panel sobre "Bientôt disponible" via ComingSoon.
+  - Fetch parallèle getProfile + getMatches(50) au mount, skeletons sobres (panels gris anim-pulse), error state avec retry (AlertCircle rouge + Btn "Réessayer"). Boutons communs en bas (Nouveau duel → setView('classselect') + Classement → setView('leaderboard')).
+  - Sous-composants typés sans `any` : `type GameRow = Record<string, React.ReactNode>`, `type LeaderboardRow = Record<string, React.ReactNode> & { _isMe?: boolean }`, helper `buildModeStats(matches, universe)` retournant `ModeStat[]`.
+- Vérifications :
+  - `bun run lint` : 0 erreur, 0 warning.
+  - `bunx tsc --noEmit` : 0 erreur sur `ProfileScreen.tsx` et `LeaderboardScreen.tsx`. Erreurs TS pré-existantes dans `examples/websocket/*`, `skills/*`, `src/app/api/profile/route.ts` (typo seed), `src/components/matharena/ResultsScreen.tsx` + `src/hooks/useDuel.ts` (champ `universe` manquant dans saveMatch) — NON introduites par cette task, NON dans le scope UI.
+  - Backend : le client Prisma était STALE (le `@prisma/client` généré ne connaissait ni `id` ni `eloArena`/`winsArena`/`lossesArena`). Résultat : `/api/profile` retournait 500 (`Unknown argument id`) et `/api/leaderboard?universe=arena` retournait 500 (`Unknown argument eloArena`). Fix appliqué : `bunx prisma generate` + suppression du cache `.next/` + redémarrage du dev server. AUCUN fichier backend modifié — juste régénération du client Prisma et invalidation du cache Turbopack.
+  - Après fix : `curl /api/profile` → 200 JSON avec `eloCompetitive:1000, eloArena:1000, winsArena:0, lossesArena:0, winrateArena:0, totalMatches:0, totalMatchesArena:0, levelInfo:{...}`. `curl /api/leaderboard?universe=competitive` → 200 JSON trié par `elo` DESC (NeuroBlade #1 elo 1480). `curl /api/leaderboard?universe=arena` → 200 JSON trié par `eloArena` DESC (PyroMath #1 elo 1460). `curl /api/matches?limit=5` → 200 `[]` (aucun match joué).
+  - dev.log : `✓ Compiled in 141ms` / `✓ Compiled in 174ms` / `GET /api/profile 200` / `GET /api/leaderboard?universe=competitive 200` / `GET /api/leaderboard?universe=arena 200`. Aucune erreur de compilation ou runtime liée aux 2 fichiers UI.
+- Design system strictement appliqué : palette neutre (#0E1116/#161B22/#1C2128/#22272E + texte #E6EDF3/#9BA4B0/#6E7681) + 1 accent bleu #3B82F6 (tabs actifs, barre XP, ligne du chart, badge "Comp", bordure active sidebar). Semantic #2EA043 (victoires, WIN badge, ligne wins BarChart) / #F85149 (défaites, LOSE badge, ligne losses BarChart) / #D29922 (rang #1 or) sparingly. PAS de violet/rose/orange, PAS de glow/gradient/shadow/lift. Fonts Inter (UI) + JetBrains Mono (Elo/chiffres/timers/ratings via `font-mono`). Primitives ui.tsx utilisées partout (Btn/Panel/PageTitle/SectionLabel/StatTile/RankBadge/Tabs/DataTable). Icônes lucide monochromes (Pencil/Save/X/AlertCircle/Clock) en w-3.5/4 h-3.5/4. Badges petits (10-11px uppercase) fond très léger teinté. Pas de navbar/footer ajoutés (gérés par page.tsx).
+
+Stage Summary:
+- 2 fichiers réécrits (écrasés) : `src/components/matharena/LeaderboardScreen.tsx` (~170 lignes, toggle d'univers Tabs sync useApp + DataTable 9 colonnes dense, ligne isMe surlignée, PAS de podium) + `src/components/matharena/ProfileScreen.tsx` (~640 lignes, sidebar nav + Overview dual-rank/dual-elo/2 sections StatTiles 7 tuiles compétitif+arène/LineChart rating avec toggle univers/DataTable parties récentes avec badge Univers + Stats tab 2 BarCharts par univers + Games tab DataTable complète 11 colonnes avec colonne Univers). Tous 'use client', TypeScript strict sans `any`, `cn()` partout, primitives ui.tsx utilisées.
+- Lint : 0 erreur, 0 warning. Type-check : 0 erreur sur les 2 fichiers UI. Compilation Turbopack : ✓ (dev.log propre pour les 2 fichiers, `✓ Compiled in 141ms`).
+- Backend : client Prisma régénéré (`bunx prisma generate`) + cache `.next/` invalidé + dev server redémarré pour faire fonctionner les routes dual-universe (`/api/profile`, `/api/leaderboard?universe=competitive|arena` retournent maintenant 200 avec les champs `eloCompetitive`/`eloArena`/`winsArena`/`lossesArena`/etc.). AUCUN fichier backend modifié.
+- Problèmes signalés (hors scope UI) :
+  - `src/app/api/profile/route.ts` lignes 25-35 : chaque seed bot a `losses: X, ..., losses: Y` écrit DEUX fois (le second devrait être `lossesArena: Y`). Conséquence : `lossesArena` reste à 0 pour tous les bots → winrate arène = 100% pour tous les bots au leaderboard arène. À corriger par un subagent backend.
+  - `src/components/matharena/ResultsScreen.tsx` + `src/hooks/useDuel.ts` : `saveMatch` est appelé sans le champ `universe` requis par `SaveMatchBody` → TS2345. À corriger par un subagent duel.
+  - `examples/websocket/*` + `skills/*` : erreurs TS pré-existantes non concernées.
+
+---
+Task ID: dual-universe (1-9)
+Agent: main (Z.ai Code)
+Task: Deux univers dans le même site — Compétitif (pur skill, Chess.com) & Arène (gaming, classes/sorts).
+
+Work Log:
+- Prisma schema : ajout eloArena/winsArena/lossesArena sur Player ; match.universe + playerClass/opponentClass optionnels. db push + re-seed bots (11 bots avec deux elos + lossesArena corrigé).
+- progression.ts : computeEloChange/computeXpGained prennent universe (compétitif = Elo toujours hors PRACTICE ; arène = RANKED/BLITZ). toProfile renvoie les deux elos + winrates.
+- API : profile (dual elos), matches (POST prend universe, update le bon elo/wins/losses), leaderboard (?universe= trie par elo ou eloArena). Tous vérifiés 200.
+- store.ts : ajout universe 'competitive'|'arena' + setUniverse. MatchResultPayload étendu (universe, classes nullables).
+- api.ts : types étendus (Profile dual, MatchRecord universe, LeaderboardEntry dual, SaveMatchBody universe).
+- competitive-engine.ts : pur skill. createCompDuel, planOpponent (thinkMs + accuracy par difficulté), playerSubmit (correct=+1, wrong=lockout, timeout=annul), opponentFire (+1 ou trompe), advanceComp (gameover à TARGET_SCORE=7). Garde-fou question undefined.
+- useCompetitiveDuel.ts : timers (countdown + opponentTimer), resolvedRef/opponentDoneRef, handleTimeout/handleOpponentFire avec gardes, commit défensif. Bug "log pas de re-render" corrigé (nouveau array log dans handleTimeout).
+- CompetitiveDuelScreen : score panel Chess.com (Toi | X — Y | adversaire + barres progression vers 7), question mono, input (flash vert/rouge), log mono bas. Garde !state.question.
+- HomeScreen : switcher d'univers (Tabs Compétitif/Arène) + dashboard adapté (play panel, parties récentes filtrées par univers, classes pour arène / "comment ça marche" pour compétitif, sidebar top joueurs de l'univers).
+- ClassSelectScreen : branching (compétitif = pas de section classe, 3 modes ; arène = classes + 4 modes).
+- ResultsScreen : adapté (universe, "Score final" en compétitif / "PV restants" en arène, "Elo compétitif/arène").
+- page.tsx : router duel → CompetitiveDuelScreen ou DuelScreen selon universe. ErrorBoundary.
+- useDuel (arène) : onFinish payload avec universe:'arena'.
+- Subagent 8 : ProfileScreen (sidebar + 2 sections StatTiles compétitif/arène + LineChart + DataTable avec colonne univers), LeaderboardScreen (toggle univers + table dense).
+
+Stage Summary:
+- Vérifié Agent Browser : switcher d'univers OK, duel compétitif (VICTOIRE 7-2, Elo 1000→1016, sauvegardé), duel arène (DÉFAITE BLITZ, Elo arène 1000→968, sauvegardé), profil dual elos, leaderboard toggle (comp: NeuroBlade#1 1480 / arène: PyroMath#1 1460). Lint 0 erreurs. DB reset. Push sur main.

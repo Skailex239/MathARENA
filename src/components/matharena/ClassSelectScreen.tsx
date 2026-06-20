@@ -8,8 +8,14 @@ import { Btn, Panel, PageTitle, SectionLabel, RankBadge } from "./ui";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
-const MODE_TABS: { value: GameMode; label: string; desc: string }[] = [
-  { value: "RANKED", label: "Classé", desc: "Matchmaking par Elo. Difficulté adaptative." },
+const MODE_TABS_COMP: { value: GameMode; label: string; desc: string }[] = [
+  { value: "RANKED", label: "Classé", desc: "Elo officiel. Difficulté adaptative." },
+  { value: "QUICK", label: "Rapide", desc: "Sans enjeu. 8s par question." },
+  { value: "BLITZ", label: "Blitz", desc: "3s par question. Impacte l'Elo." },
+];
+
+const MODE_TABS_ARENA: { value: GameMode; label: string; desc: string }[] = [
+  { value: "RANKED", label: "Classé", desc: "Impacte ton Elo d'arène." },
   { value: "QUICK", label: "Rapide", desc: "Sans enjeu. 10s par question." },
   { value: "BLITZ", label: "Blitz", desc: "3s par question. Impacte l'Elo." },
   { value: "PRACTICE", label: "Entraînement", desc: "Vs IA. Sans Elo." },
@@ -43,13 +49,16 @@ export function ClassSelectScreen() {
   const setOpponent = useApp((s) => s.setOpponent);
   const selectedClass = useApp((s) => s.selectedClass);
   const selectedMode = useApp((s) => s.selectedMode);
+  const universe = useApp((s) => s.universe);
 
+  const isArena = universe === "arena";
   const [cls, setCls] = useState<ClassId>(selectedClass);
   const [mode, setMode] = useState<GameMode>(selectedMode);
   const [opp, setOpp] = useState(() => randomOpponent());
 
   const oppDef = CLASSES[opp.classId];
   const def = CLASSES[cls];
+  const modeTabs = isArena ? MODE_TABS_ARENA : MODE_TABS_COMP;
 
   const launch = () => {
     setSelection(cls, mode);
@@ -66,15 +75,21 @@ export function ClassSelectScreen() {
         <ArrowLeft className="w-4 h-4" /> Retour
       </button>
 
-      <PageTitle className="mb-1">Nouvelle partie</PageTitle>
-      <p className="text-sm text-[#9ba4b0] mb-6">Configure ta partie et lance le duel.</p>
+      <PageTitle className="mb-1">
+        {isArena ? "Duel d'arène" : "Duel compétitif"}
+      </PageTitle>
+      <p className="text-sm text-[#9ba4b0] mb-6">
+        {isArena
+          ? "Choisis ta classe, ton mode et ton adversaire."
+          : "Choisis ton mode et ton adversaire. Pur skill."}
+      </p>
 
       <div className="space-y-5">
         {/* Mode */}
         <Panel className="p-4">
           <SectionLabel className="mb-3 block">Mode</SectionLabel>
           <div className="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-[#1c2128] border border-[#2d333b]">
-            {MODE_TABS.map((m) => (
+            {modeTabs.map((m) => (
               <button
                 key={m.value}
                 onClick={() => setMode(m.value)}
@@ -88,53 +103,53 @@ export function ClassSelectScreen() {
             ))}
           </div>
           <p className="text-xs text-[#6e7681] mt-2">
-            {MODE_TABS.find((m) => m.value === mode)?.desc}
+            {modeTabs.find((m) => m.value === mode)?.desc}
           </p>
         </Panel>
 
-        {/* Classe */}
-        <Panel className="p-4">
-          <SectionLabel className="mb-3 block">Classe</SectionLabel>
-          <div className="grid grid-cols-5 gap-2">
-            {CLASS_LIST.map((c) => {
-              const active = c.id === cls;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setCls(c.id)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-3 rounded-md border transition-colors",
-                    active
-                      ? "border-[#3b82f6] bg-[rgba(59,130,246,0.08)]"
-                      : "border-[#2d333b] hover:border-[#444c56] hover:bg-[#1c2128]",
-                  )}
-                >
-                  <span className="text-xl leading-none text-[#e6edf3]">{CLASS_ICON[c.id]}</span>
-                  <span className={cn("text-xs font-medium", active ? "text-[#3b82f6]" : "text-[#e6edf3]")}>{c.name}</span>
-                  <span className="text-[10px] font-mono text-[#6e7681]">{c.hp} PV</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* détail classe sobre, en texte */}
-          <div className="mt-3 pt-3 border-t border-[#232a33] grid sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Passif</div>
-              <div className="text-[#e6edf3] font-medium">{def.passive.name}</div>
-              <div className="text-[#9ba4b0] mt-0.5 leading-snug">{def.passive.description}</div>
+        {/* Classe — arène uniquement */}
+        {isArena && (
+          <Panel className="p-4">
+            <SectionLabel className="mb-3 block">Classe</SectionLabel>
+            <div className="grid grid-cols-5 gap-2">
+              {CLASS_LIST.map((c) => {
+                const active = c.id === cls;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setCls(c.id)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-3 rounded-md border transition-colors",
+                      active
+                        ? "border-[#3b82f6] bg-[rgba(59,130,246,0.08)]"
+                        : "border-[#2d333b] hover:border-[#444c56] hover:bg-[#1c2128]",
+                    )}
+                  >
+                    <span className="text-xl leading-none text-[#e6edf3]">{CLASS_ICON[c.id]}</span>
+                    <span className={cn("text-xs font-medium", active ? "text-[#3b82f6]" : "text-[#e6edf3]")}>{c.name}</span>
+                    <span className="text-[10px] font-mono text-[#6e7681]">{c.hp} PV</span>
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Ultime</div>
-              <div className="text-[#e6edf3] font-medium">{def.ultimate.name}</div>
-              <div className="text-[#9ba4b0] mt-0.5 leading-snug">{def.ultimate.description}</div>
+            <div className="mt-3 pt-3 border-t border-[#232a33] grid sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Passif</div>
+                <div className="text-[#e6edf3] font-medium">{def.passive.name}</div>
+                <div className="text-[#9ba4b0] mt-0.5 leading-snug">{def.passive.description}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Ultime</div>
+                <div className="text-[#e6edf3] font-medium">{def.ultimate.name}</div>
+                <div className="text-[#9ba4b0] mt-0.5 leading-snug">{def.ultimate.description}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Faiblesse</div>
+                <div className="text-[#9ba4b0] leading-snug">{def.weakness}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#6e7681] mb-0.5">Faiblesse</div>
-              <div className="text-[#9ba4b0] leading-snug">{def.weakness}</div>
-            </div>
-          </div>
-        </Panel>
+          </Panel>
+        )}
 
         {/* Adversaire */}
         <Panel className="p-4">
@@ -148,11 +163,13 @@ export function ClassSelectScreen() {
             </button>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-2xl text-[#e6edf3]">{CLASS_ICON[opp.classId]}</span>
+            <span className="text-2xl text-[#e6edf3]">
+              {isArena ? CLASS_ICON[opp.classId] : "·"}
+            </span>
             <div className="flex-1">
               <div className="text-sm font-medium text-[#e6edf3]">{opp.name}</div>
               <div className="text-xs text-[#9ba4b0]">
-                {oppDef.name} · {oppDef.hp} PV · {oppDef.passive.name}
+                {isArena ? `${oppDef.name} · ${oppDef.hp} PV · ${oppDef.passive.name}` : "Adversaire pairé à ton Elo"}
               </div>
             </div>
             <RankBadge elo={1000} />

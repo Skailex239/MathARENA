@@ -9,26 +9,30 @@ async function ensureBotsSeeded(): Promise<void> {
   const botCount = await db.player.count({ where: { isBot: true } });
   if (botCount > 0) return;
 
+  // Seeds : elo = compétitif, eloArena = arène (légèrement différent pour du réalisme).
   const seeds: Array<{
     name: string;
     elo: number;
+    eloArena: number;
     class: string;
     wins: number;
     losses: number;
+    winsArena: number;
+    lossesArena: number;
     bestCombo: number;
     title: string | null;
   }> = [
-    { name: 'NeuroBlade', elo: 1480, class: 'assassin', wins: 142, losses: 38, bestCombo: 14, title: 'Inarrêtable' },
-    { name: 'PyroMath', elo: 1410, class: 'mage', wins: 120, losses: 50, bestCombo: 12, title: 'Roi du blitz' },
-    { name: 'ZeroChill', elo: 1355, class: 'gardien', wins: 98, losses: 44, bestCombo: 9, title: 'Cerveau de fer' },
-    { name: 'Vortex', elo: 1290, class: 'assassin', wins: 110, losses: 60, bestCombo: 11, title: 'Calculateur fou' },
-    { name: 'CalcQueen', elo: 1230, class: 'mage', wins: 88, losses: 52, bestCombo: 10, title: 'Machine humaine' },
-    { name: 'PrimeTime', elo: 1180, class: 'guerrier', wins: 76, losses: 58, bestCombo: 8, title: null },
-    { name: 'Hexa', elo: 1120, class: 'alchimiste', wins: 64, losses: 60, bestCombo: 8, title: null },
-    { name: 'Quanta', elo: 1060, class: 'gardien', wins: 55, losses: 62, bestCombo: 7, title: null },
-    { name: 'Sigma', elo: 1000, class: 'guerrier', wins: 48, losses: 66, bestCombo: 6, title: null },
-    { name: 'Omega', elo: 940, class: 'alchimiste', wins: 40, losses: 70, bestCombo: 6, title: null },
-    { name: 'Infinix', elo: 870, class: 'mage', wins: 30, losses: 78, bestCombo: 5, title: null },
+    { name: 'NeuroBlade', elo: 1480, eloArena: 1390, class: 'assassin', wins: 142, losses: 38, winsArena: 110, lossesArena: 52, bestCombo: 14, title: 'Inarrêtable' },
+    { name: 'PyroMath', elo: 1410, eloArena: 1460, class: 'mage', wins: 120, losses: 50, winsArena: 132, lossesArena: 44, bestCombo: 12, title: 'Roi du blitz' },
+    { name: 'ZeroChill', elo: 1355, eloArena: 1200, class: 'gardien', wins: 98, losses: 44, winsArena: 70, lossesArena: 60, bestCombo: 9, title: 'Cerveau de fer' },
+    { name: 'Vortex', elo: 1290, eloArena: 1330, class: 'assassin', wins: 110, losses: 60, winsArena: 100, lossesArena: 58, bestCombo: 11, title: 'Calculateur fou' },
+    { name: 'CalcQueen', elo: 1230, eloArena: 1280, class: 'mage', wins: 88, losses: 52, winsArena: 96, lossesArena: 50, bestCombo: 10, title: 'Machine humaine' },
+    { name: 'PrimeTime', elo: 1180, eloArena: 1140, class: 'guerrier', wins: 76, losses: 58, winsArena: 64, lossesArena: 62, bestCombo: 8, title: null },
+    { name: 'Hexa', elo: 1120, eloArena: 1090, class: 'alchimiste', wins: 64, losses: 60, winsArena: 60, lossesArena: 64, bestCombo: 8, title: null },
+    { name: 'Quanta', elo: 1060, eloArena: 1040, class: 'gardien', wins: 55, losses: 62, winsArena: 50, lossesArena: 66, bestCombo: 7, title: null },
+    { name: 'Sigma', elo: 1000, eloArena: 1000, class: 'guerrier', wins: 48, losses: 66, winsArena: 44, lossesArena: 70, bestCombo: 6, title: null },
+    { name: 'Omega', elo: 940, eloArena: 960, class: 'alchimiste', wins: 40, losses: 70, winsArena: 38, lossesArena: 72, bestCombo: 6, title: null },
+    { name: 'Infinix', elo: 870, eloArena: 900, class: 'mage', wins: 30, losses: 78, winsArena: 28, lossesArena: 80, bestCombo: 5, title: null },
   ];
 
   await db.$transaction(
@@ -40,9 +44,12 @@ async function ensureBotsSeeded(): Promise<void> {
           isBot: true,
           name: b.name,
           elo: b.elo,
+          eloArena: b.eloArena,
           class: b.class,
           wins: b.wins,
           losses: b.losses,
+          winsArena: b.winsArena,
+          lossesArena: b.lossesArena,
           bestCombo: b.bestCombo,
           title: b.title,
           xp,
@@ -57,7 +64,7 @@ async function ensureBotsSeeded(): Promise<void> {
 async function ensureHumanPlayer(): Promise<Player> {
   return db.player.upsert({
     where: { id: 1 },
-    create: { id: 1, isBot: false, name: 'Joueur', elo: 1000 },
+    create: { id: 1, isBot: false, name: 'Joueur', elo: 1000, eloArena: 1000 },
     update: {},
   });
 }
@@ -102,7 +109,6 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.name === 'string' && body.name.trim().length > 0) {
       data.name = body.name.trim();
     }
-    // title & class can be cleared (null) — only apply when explicitly provided.
     if (body.title !== undefined) {
       data.title =
         typeof body.title === 'string' && body.title.trim().length > 0

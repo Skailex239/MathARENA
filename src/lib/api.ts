@@ -1,28 +1,39 @@
 import type { ClassId, GameMode } from "./game/types";
+import type { Universe } from "./game/progression";
 
 export interface Profile {
   id: number;
   name: string;
-  elo: number;
-  level: number;
-  xp: number;
+  // compétitif
+  elo: number;            // alias eloCompetitive
+  eloCompetitive: number;
   wins: number;
   losses: number;
+  winrate: number;
+  // arène
+  eloArena: number;
+  winsArena: number;
+  lossesArena: number;
+  winrateArena: number;
   bestCombo: number;
+  // global
+  level: number;
+  xp: number;
   title: string | null;
   class: string | null;
-  winrate: number;
-  totalMatches: number;
+  totalMatches: number;       // compétitif
+  totalMatchesArena: number;
   levelInfo: { level: number; current: number; needed: number };
 }
 
 export interface MatchRecord {
   id: number;
-  playerClass: string;
-  opponentClass: string;
+  universe: Universe;
+  playerClass: string | null;
+  opponentClass: string | null;
   opponentName: string;
   result: "WIN" | "LOSE";
-  playerHP: number;
+  playerHP: number;   // arène: PV ; compétitif: score
   opponentHP: number;
   maxCombo: number;
   avgTimeMs: number;
@@ -37,10 +48,14 @@ export interface MatchRecord {
 export interface LeaderboardEntry {
   id: number;
   name: string;
-  elo: number;
+  elo: number;            // elo de l'univers sélectionné
+  eloCompetitive: number;
+  eloArena: number;
   level: number;
-  wins: number;
+  wins: number;           // de l'univers sélectionné
   losses: number;
+  winsArena: number;
+  lossesArena: number;
   bestCombo: number;
   title: string | null;
   class: string | null;
@@ -50,13 +65,14 @@ export interface LeaderboardEntry {
 }
 
 export interface SaveMatchBody {
-  playerClass: ClassId;
-  opponentClass: ClassId;
+  universe: Universe;
+  playerClass: ClassId | null;   // arène uniquement
+  opponentClass: ClassId | null; // arène uniquement
   opponentName: string;
   result: "WIN" | "LOSE";
-  playerHP: number;
+  playerHP: number;   // arène: PV ; compétitif: score
   opponentHP: number;
-  maxCombo: number;
+  maxCombo: number;   // arène uniquement
   avgTimeMs: number;
   accuracy: number;
   mode: GameMode;
@@ -91,5 +107,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then(json<SaveMatchResponse>),
-  getLeaderboard: () => fetch("/api/leaderboard").then(json<LeaderboardEntry[]>),
+  getLeaderboard: (universe: Universe = "competitive") =>
+    fetch(`/api/leaderboard?universe=${universe}`).then(json<LeaderboardEntry[]>),
 };

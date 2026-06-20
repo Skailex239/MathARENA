@@ -95,6 +95,7 @@ export function useDuel(opts: UseDuelOpts) {
     const won = s.player.hp > 0 && s.opponent.hp <= 0;
     const st = stats.current;
     onFinishRef.current({
+      universe: "arena",
       result: won ? "WIN" : "LOSE",
       playerClass: playerClassId,
       opponentClass: opponentClassId,

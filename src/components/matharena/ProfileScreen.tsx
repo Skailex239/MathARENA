@@ -18,18 +18,21 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
 
-import { Btn, Panel, PageTitle, SectionLabel, StatTile, RankBadge, DataTable } from "@/components/matharena/ui";
+import { Btn, Panel, PageTitle, SectionLabel, StatTile, RankBadge, Tabs, DataTable } from "@/components/matharena/ui";
 import { api, type Profile, type MatchRecord } from "@/lib/api";
 import { useApp } from "@/lib/store";
 import { CLASSES } from "@/lib/game/classes";
+import type { Universe } from "@/lib/game/progression";
 import { cn } from "@/lib/utils";
 
 /* ============================================================
    ProfileScreen — Chess.com dashboard style
    Sidebar nav + Overview / Stats / Games (real) + Achievements / Settings (todo)
+   Affiche les stats des DEUX univers (Compétitif + Arène).
    ============================================================ */
 
 type Tab = "overview" | "stats" | "games" | "achievements" | "settings";
+type RatingUniverse = Universe;
 
 const NAV: { id: Tab; label: string; available: boolean }[] = [
   { id: "overview", label: "Vue d'ensemble", available: true },
@@ -53,7 +56,6 @@ export default function ProfileScreen() {
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [tab, setTab] = useState<Tab>("overview");
 
   const reload = useCallback(async () => {
@@ -177,29 +179,33 @@ function Overview({
   onProfileChange: (p: Profile) => void;
 }) {
   const setView = useApp((s) => s.setView);
+  const [ratingUniverse, setRatingUniverse] = useState<RatingUniverse>("competitive");
 
   const recent = useMemo(() => matches.slice(0, 10), [matches]);
-  const ratingData = useMemo(
-    () =>
-      [...matches]
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-        .map((m, i) => ({ match: i + 1, elo: m.eloAfter })),
-    [matches],
-  );
 
-  // stats
-  const wins = profile.wins;
-  const losses = profile.losses;
-  const winrate = profile.winrate;
-  const avgTime = matches.length
-    ? Math.round(matches.reduce((s, m) => s + m.avgTimeMs, 0) / matches.length / 100) / 10
+  const ratingData = useMemo(() => {
+    const filtered = matches
+      .filter((m) => m.universe === ratingUniverse)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    return filtered.map((m, i) => ({ match: i + 1, elo: m.eloAfter }));
+  }, [matches, ratingUniverse]);
+
+  // Stats compétitif (depuis matchs compétitifs)
+  const compMatches = useMemo(() => matches.filter((m) => m.universe === "competitive"), [matches]);
+  const arenaMatches = useMemo(() => matches.filter((m) => m.universe === "arena"), [matches]);
+
+  const compAvgTime = compMatches.length
+    ? Math.round(compMatches.reduce((s, m) => s + m.avgTimeMs, 0) / compMatches.length / 100) / 10
     : 0;
-  const avgAcc = matches.length
-    ? Math.round((matches.reduce((s, m) => s + m.accuracy, 0) / matches.length) * 10) / 10
+  const compAvgAcc = compMatches.length
+    ? Math.round((compMatches.reduce((s, m) => s + m.accuracy, 0) / compMatches.length) * 10) / 10
     : 0;
+
   const favClass = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const m of matches) counts.set(m.playerClass, (counts.get(m.playerClass) ?? 0) + 1);
+    for (const m of arenaMatches) {
+      if (m.playerClass) counts.set(m.playerClass, (counts.get(m.playerClass) ?? 0) + 1);
+    }
     let best: string | null = null;
     let bestN = 0;
     for (const [k, n] of counts) {
@@ -209,7 +215,7 @@ function Overview({
       }
     }
     return best ?? profile.class;
-  }, [matches, profile.class]);
+  }, [arenaMatches, profile.class]);
 
   const xpPct = profile.levelInfo.needed
     ? Math.round((profile.levelInfo.current / profile.levelInfo.needed) * 100)
@@ -220,26 +226,38 @@ function Overview({
       {/* Header */}
       <ProfileHeader profile={profile} onProfileChange={onProfileChange} xpPct={xpPct} />
 
-      {/* Stat tiles */}
+      {/* Stat tiles — Compétitif */}
       <section>
-        <SectionLabel className="mb-3">Statistiques</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
-          <StatTile label="Elo" value={<span className="font-mono">{profile.elo}</span>} />
-          <StatTile label="Niveau" value={<span className="font-mono">{profile.level}</span>} />
+        <SectionLabel className="mb-3">Statistiques · Compétitif</SectionLabel>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
+          <StatTile label="Elo" value={<span className="font-mono">{profile.eloCompetitive}</span>} />
           <StatTile label="Parties" value={<span className="font-mono">{profile.totalMatches}</span>} />
-          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{wins}</span>} />
-          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{losses}</span>} />
+          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{profile.wins}</span>} />
+          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{profile.losses}</span>} />
           <StatTile
             label="Winrate"
-            value={<span className="font-mono">{winrate}%</span>}
-            sub={`${wins}V / ${losses}D`}
+            value={<span className="font-mono">{profile.winrate}%</span>}
+            sub={`${profile.wins}V / ${profile.losses}D`}
           />
+          <StatTile label="Vitesse moyenne" value={<span className="font-mono">{compAvgTime}s</span>} sub="par question" />
+          <StatTile label="Précision" value={<span className="font-mono">{compAvgAcc}%</span>} />
+        </div>
+      </section>
+
+      {/* Stat tiles — Arène */}
+      <section>
+        <SectionLabel className="mb-3">Statistiques · Arène</SectionLabel>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
+          <StatTile label="Elo arène" value={<span className="font-mono">{profile.eloArena}</span>} />
+          <StatTile label="Parties" value={<span className="font-mono">{profile.totalMatchesArena}</span>} />
+          <StatTile label="Victoires" value={<span className="font-mono text-[#2ea043]">{profile.winsArena}</span>} />
+          <StatTile label="Défaites" value={<span className="font-mono text-[#f85149]">{profile.lossesArena}</span>} />
           <StatTile
-            label="Meilleur combo"
-            value={<span className="font-mono">x{profile.bestCombo}</span>}
+            label="Winrate"
+            value={<span className="font-mono">{profile.winrateArena}%</span>}
+            sub={`${profile.winsArena}V / ${profile.lossesArena}D`}
           />
-          <StatTile label="Vitesse moyenne" value={<span className="font-mono">{avgTime}s</span>} sub="par question" />
-          <StatTile label="Précision" value={<span className="font-mono">{avgAcc}%</span>} />
+          <StatTile label="Meilleur combo" value={<span className="font-mono">x{profile.bestCombo}</span>} />
           <StatTile
             label="Classe préférée"
             value={
@@ -254,7 +272,17 @@ function Overview({
 
       {/* Rating history */}
       <section>
-        <SectionLabel className="mb-3">Historique du rating</SectionLabel>
+        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <SectionLabel>Historique du rating</SectionLabel>
+          <Tabs<RatingUniverse>
+            value={ratingUniverse}
+            onChange={setRatingUniverse}
+            options={[
+              { value: "competitive", label: "Compétitif" },
+              { value: "arena", label: "Arène" },
+            ]}
+          />
+        </div>
         <Panel className="p-4">
           {ratingData.length === 0 ? (
             <EmptyHint text="Aucune partie pour l'instant." />
@@ -276,6 +304,7 @@ function Overview({
                     tickLine={false}
                     axisLine={{ stroke: "#2d333b" }}
                     width={48}
+                    domain={["dataMin - 20", "dataMax + 20"]}
                   />
                   <RTooltip
                     cursor={{ stroke: "#3b82f6", strokeWidth: 1 }}
@@ -308,7 +337,9 @@ function Overview({
       <section>
         <div className="flex items-center justify-between mb-3">
           <SectionLabel>Parties récentes</SectionLabel>
-          <span className="text-xs text-[#6e7681]">{recent.length} / {matches.length}</span>
+          <span className="text-xs text-[#6e7681]">
+            {recent.length} / {matches.length}
+          </span>
         </div>
         {recent.length === 0 ? (
           <Panel className="p-8 flex flex-col items-center gap-3 text-center">
@@ -329,7 +360,7 @@ function Overview({
 }
 
 /* ----------------------------------------------------------------
-   Profile header — name editable, rank, level/XP, elo mono
+   Profile header — name editable, dual rank, level/XP, dual elo
    ---------------------------------------------------------------- */
 
 function ProfileHeader({
@@ -369,8 +400,9 @@ function ProfileHeader({
 
   return (
     <Panel className="p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          {/* Name (editable) */}
           <div className="flex items-center gap-2 flex-wrap">
             {editing ? (
               <div className="flex items-center gap-2">
@@ -417,16 +449,33 @@ function ProfileHeader({
             )}
           </div>
 
-          <div className="mt-2 flex items-center gap-3 flex-wrap text-xs text-[#9ba4b0]">
-            <RankBadge elo={profile.elo} />
+          {/* Title */}
+          {profile.title && (
+            <div className="mt-1 text-xs italic text-[#9ba4b0]">{profile.title}</div>
+          )}
+
+          {/* Dual ranks */}
+          <div className="mt-3 flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-[#6e7681]">Compétitif</span>
+              <RankBadge elo={profile.eloCompetitive} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-[#6e7681]">Arène</span>
+              <RankBadge elo={profile.eloArena} />
+            </div>
+          </div>
+
+          {/* Dual Elo + level */}
+          <div className="mt-2 flex items-center gap-4 flex-wrap text-xs text-[#9ba4b0]">
+            <span className="flex items-center gap-1">
+              Elo comp. <span className="font-mono text-[#e6edf3]">{profile.eloCompetitive}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              Elo arène <span className="font-mono text-[#e6edf3]">{profile.eloArena}</span>
+            </span>
             <span className="flex items-center gap-1">
               Niveau <span className="font-mono text-[#e6edf3]">{profile.level}</span>
-            </span>
-            <span className="flex items-center gap-1">
-              Elo <span className="font-mono text-[#e6edf3]">{profile.elo}</span>
-            </span>
-            <span>
-              {profile.wins}V · {profile.losses}D
             </span>
           </div>
         </div>
@@ -445,6 +494,9 @@ function ProfileHeader({
               style={{ width: `${Math.max(0, Math.min(100, xpPct))}%` }}
             />
           </div>
+          <div className="mt-2 text-[11px] text-[#6e7681]">
+            {profile.wins}V · {profile.losses}D en compétitif
+          </div>
         </div>
       </div>
     </Panel>
@@ -452,11 +504,13 @@ function ProfileHeader({
 }
 
 /* ----------------------------------------------------------------
-   Recent games DataTable
+   Recent games DataTable — with universe badges
    ---------------------------------------------------------------- */
 
+type GameRow = Record<string, React.ReactNode>;
+
 function RecentGamesTable({ rows }: { rows: MatchRecord[] }) {
-  const data = useMemo(
+  const data = useMemo<GameRow[]>(
     () =>
       rows.map((m) => ({
         date: (
@@ -464,16 +518,12 @@ function RecentGamesTable({ rows }: { rows: MatchRecord[] }) {
             {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
           </span>
         ),
+        universe: <UniverseBadge universe={m.universe} />,
         opponent: <span className="text-[#e6edf3]">{m.opponentName}</span>,
-        class: (
-          <span className="text-[#9ba4b0]">
-            {CLASSES[m.playerClass as keyof typeof CLASSES]?.emoji ?? "·"}{" "}
-            {CLASSES[m.playerClass as keyof typeof CLASSES]?.name ?? m.playerClass}
-          </span>
-        ),
+        class: <ClassCell playerClass={m.playerClass} />,
         result: <ResultBadge result={m.result} />,
         elo: <EloChange change={m.eloChange} after={m.eloAfter} />,
-        combo: <span className="font-mono text-[#9ba4b0]">x{m.maxCombo}</span>,
+        combo: <ComboCell universe={m.universe} combo={m.maxCombo} />,
         time: <span className="font-mono text-[#9ba4b0]">{Math.round(m.avgTimeMs / 100) / 10}s</span>,
         mode: <span className="text-[#9ba4b0]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
       })),
@@ -481,9 +531,10 @@ function RecentGamesTable({ rows }: { rows: MatchRecord[] }) {
   );
 
   return (
-    <DataTable
+    <DataTable<GameRow>
       columns={[
         { key: "date", header: "Date" },
+        { key: "universe", header: "Univers" },
         { key: "opponent", header: "Adversaire" },
         { key: "class", header: "Classe" },
         { key: "result", header: "Résultat" },
@@ -496,6 +547,36 @@ function RecentGamesTable({ rows }: { rows: MatchRecord[] }) {
       rowKey={(_, i) => String(i)}
     />
   );
+}
+
+function UniverseBadge({ universe }: { universe: Universe }) {
+  if (universe === "competitive") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-[#3b82f6] border border-[#3b82f6]/40 bg-[#3b82f6]/10">
+        Comp
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-[#9ba4b0] border border-[#2d333b]">
+      Arène
+    </span>
+  );
+}
+
+function ClassCell({ playerClass }: { playerClass: string | null }) {
+  if (!playerClass) return <span className="text-[#6e7681]">—</span>;
+  const cls = CLASSES[playerClass as keyof typeof CLASSES];
+  return (
+    <span className="text-[#9ba4b0]">
+      {cls?.emoji ?? "·"} {cls?.name ?? playerClass}
+    </span>
+  );
+}
+
+function ComboCell({ universe, combo }: { universe: Universe; combo: number }) {
+  if (universe === "competitive") return <span className="text-[#6e7681]">—</span>;
+  return <span className="font-mono text-[#9ba4b0]">x{combo}</span>;
 }
 
 function ResultBadge({ result }: { result: "WIN" | "LOSE" }) {
@@ -518,50 +599,35 @@ function EloChange({ change, after }: { change: number; after: number }) {
   const color = change > 0 ? "text-[#2ea043]" : change < 0 ? "text-[#f85149]" : "text-[#9ba4b0]";
   return (
     <span className="font-mono text-xs">
-      <span className={color}>{sign}{change}</span>
+      <span className={color}>
+        {sign}
+        {change}
+      </span>
       <span className="text-[#6e7681] ml-1">→ {after}</span>
     </span>
   );
 }
 
 /* ----------------------------------------------------------------
-   Stats tab — BarChart winrate par mode + per-mode table
+   Stats tab — BarChart winrate par mode (séparé compétitif / arène)
    ---------------------------------------------------------------- */
 
 function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
-  const byMode = useMemo(() => {
-    const map = new Map<string, { wins: number; losses: number; total: number; avgTime: number; avgAcc: number }>();
-    for (const m of matches) {
-      const cur = map.get(m.mode) ?? { wins: 0, losses: 0, total: 0, avgTime: 0, avgAcc: 0 };
-      cur.total += 1;
-      if (m.result === "WIN") cur.wins += 1;
-      else cur.losses += 1;
-      cur.avgTime += m.avgTimeMs;
-      cur.avgAcc += m.accuracy;
-      map.set(m.mode, cur);
-    }
-    return Array.from(map.entries()).map(([mode, v]) => ({
-      mode: MODE_LABEL[mode] ?? mode,
-      wins: v.wins,
-      losses: v.losses,
-      winrate: v.total ? Math.round((v.wins / v.total) * 100) : 0,
-      avgTime: v.total ? Math.round(v.avgTime / v.total / 100) / 10 : 0,
-      avgAcc: v.total ? Math.round(v.avgAcc / v.total * 10) / 10 : 0,
-      total: v.total,
-    }));
-  }, [matches]);
+  const compByMode = useMemo(() => buildModeStats(matches, "competitive"), [matches]);
+  const arenaByMode = useMemo(() => buildModeStats(matches, "arena"), [matches]);
 
   return (
     <div className="space-y-6">
+      {/* Compétitif — winrate par mode */}
       <section>
-        <SectionLabel className="mb-3">Répartition par mode</SectionLabel>
+        <SectionLabel className="mb-3">Compétitif · répartition par mode</SectionLabel>
         <Panel className="p-4">
-          {byMode.length === 0 ? (
-            <EmptyHint text="Aucune partie pour l'instant." />
+          {compByMode.length === 0 ? (
+            <EmptyHint text="Aucune partie compétitive pour l'instant." />
           ) : (
-            <div className="h-[260px]">
+            <div className="h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+                <BarChart data={compByMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
                   <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="mode"
@@ -600,9 +666,58 @@ function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord
         </Panel>
       </section>
 
+      {/* Arène — winrate par mode */}
       <section>
-        <SectionLabel className="mb-3">Statistiques par mode</SectionLabel>
-        {byMode.length === 0 ? (
+        <SectionLabel className="mb-3">Arène · répartition par mode</SectionLabel>
+        <Panel className="p-4">
+          {arenaByMode.length === 0 ? (
+            <EmptyHint text="Aucune partie d'arène pour l'instant." />
+          ) : (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={arenaByMode} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+                  <CartesianGrid stroke="#232a33" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="mode"
+                    stroke="#6e7681"
+                    tick={{ fontSize: 11, fill: "#6e7681" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#2d333b" }}
+                  />
+                  <YAxis
+                    stroke="#6e7681"
+                    tick={{ fontSize: 11, fill: "#6e7681" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#2d333b" }}
+                    width={32}
+                  />
+                  <RTooltip
+                    cursor={{ fill: "#22272e50" }}
+                    contentStyle={{
+                      background: "#161b22",
+                      border: "1px solid #2d333b",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: "#e6edf3",
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 11, color: "#9ba4b0" }}
+                    formatter={(v) => <span style={{ color: "#9ba4b0" }}>{v}</span>}
+                  />
+                  <Bar dataKey="wins" name="Victoires" stackId="a" fill="#2ea043" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="losses" name="Défaites" stackId="a" fill="#f85149" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Panel>
+      </section>
+
+      {/* Statistiques par mode (compétitif) */}
+      <section>
+        <SectionLabel className="mb-3">Compétitif · statistiques par mode</SectionLabel>
+        {compByMode.length === 0 ? (
           <Panel className="p-8 text-center text-sm text-[#9ba4b0]">Aucune donnée disponible.</Panel>
         ) : (
           <Panel className="overflow-hidden">
@@ -616,7 +731,7 @@ function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord
                 { key: "avgTime", header: "Temps moyen" },
                 { key: "avgAcc", header: "Précision" },
               ]}
-              rows={byMode.map((m) => ({
+              rows={compByMode.map((m) => ({
                 mode: <span className="text-[#e6edf3]">{m.mode}</span>,
                 total: <span className="font-mono text-[#9ba4b0]">{m.total}</span>,
                 wins: <span className="font-mono text-[#2ea043]">{m.wins}</span>,
@@ -631,29 +746,59 @@ function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord
         )}
       </section>
 
+      {/* Profil global (deux univers) */}
       <section>
         <SectionLabel className="mb-3">Profil global</SectionLabel>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <StatTile label="Elo" value={<span className="font-mono">{profile.elo}</span>} />
+          <StatTile label="Elo compétitif" value={<span className="font-mono">{profile.eloCompetitive}</span>} />
+          <StatTile label="Elo arène" value={<span className="font-mono">{profile.eloArena}</span>} />
           <StatTile label="Niveau" value={<span className="font-mono">{profile.level}</span>} />
           <StatTile label="Meilleur combo" value={<span className="font-mono">x{profile.bestCombo}</span>} />
-          <StatTile
-            label="Winrate global"
-            value={<span className="font-mono">{profile.winrate}%</span>}
-            sub={`${profile.wins}V / ${profile.losses}D`}
-          />
         </div>
       </section>
     </div>
   );
 }
 
+interface ModeStat {
+  mode: string;
+  wins: number;
+  losses: number;
+  total: number;
+  winrate: number;
+  avgTime: number;
+  avgAcc: number;
+}
+
+function buildModeStats(matches: MatchRecord[], universe: Universe): ModeStat[] {
+  const map = new Map<string, { wins: number; losses: number; total: number; avgTime: number; avgAcc: number }>();
+  for (const m of matches) {
+    if (m.universe !== universe) continue;
+    const cur = map.get(m.mode) ?? { wins: 0, losses: 0, total: 0, avgTime: 0, avgAcc: 0 };
+    cur.total += 1;
+    if (m.result === "WIN") cur.wins += 1;
+    else cur.losses += 1;
+    cur.avgTime += m.avgTimeMs;
+    cur.avgAcc += m.accuracy;
+    map.set(m.mode, cur);
+  }
+  return Array.from(map.entries()).map(([mode, v]) => ({
+    mode: MODE_LABEL[mode] ?? mode,
+    wins: v.wins,
+    losses: v.losses,
+    total: v.total,
+    winrate: v.total ? Math.round((v.wins / v.total) * 100) : 0,
+    avgTime: v.total ? Math.round(v.avgTime / v.total / 100) / 10 : 0,
+    avgAcc: v.total ? Math.round((v.avgAcc / v.total) * 10) / 10 : 0,
+  }));
+}
+
 /* ----------------------------------------------------------------
-   Games tab — full table
+   Games tab — full table with universe column
    ---------------------------------------------------------------- */
 
 function GamesTab({ matches }: { matches: MatchRecord[] }) {
-  const data = useMemo(
+  const data = useMemo<GameRow[]>(
     () =>
       matches.map((m) => ({
         date: (
@@ -661,22 +806,13 @@ function GamesTab({ matches }: { matches: MatchRecord[] }) {
             {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
           </span>
         ),
+        universe: <UniverseBadge universe={m.universe} />,
         opponent: <span className="text-[#e6edf3]">{m.opponentName}</span>,
-        class: (
-          <span className="text-[#9ba4b0]">
-            {CLASSES[m.playerClass as keyof typeof CLASSES]?.emoji ?? "·"}{" "}
-            {CLASSES[m.playerClass as keyof typeof CLASSES]?.name ?? m.playerClass}
-          </span>
-        ),
-        oppClass: (
-          <span className="text-[#9ba4b0]">
-            {CLASSES[m.opponentClass as keyof typeof CLASSES]?.emoji ?? "·"}{" "}
-            {CLASSES[m.opponentClass as keyof typeof CLASSES]?.name ?? m.opponentClass}
-          </span>
-        ),
+        class: <ClassCell playerClass={m.playerClass} />,
+        oppClass: <ClassCell playerClass={m.opponentClass} />,
         result: <ResultBadge result={m.result} />,
         elo: <EloChange change={m.eloChange} after={m.eloAfter} />,
-        combo: <span className="font-mono text-[#9ba4b0]">x{m.maxCombo}</span>,
+        combo: <ComboCell universe={m.universe} combo={m.maxCombo} />,
         time: <span className="font-mono text-[#9ba4b0]">{Math.round(m.avgTimeMs / 100) / 10}s</span>,
         acc: <span className="font-mono text-[#9ba4b0]">{m.accuracy}%</span>,
         mode: <span className="text-[#9ba4b0]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
@@ -692,9 +828,10 @@ function GamesTab({ matches }: { matches: MatchRecord[] }) {
 
   return (
     <Panel className="overflow-hidden">
-      <DataTable
+      <DataTable<GameRow>
         columns={[
           { key: "date", header: "Date" },
+          { key: "universe", header: "Univers" },
           { key: "opponent", header: "Adversaire" },
           { key: "class", header: "Classe" },
           { key: "oppClass", header: "Adv. classe" },
@@ -726,7 +863,9 @@ function ComingSoon() {
 }
 
 function EmptyHint({ text }: { text: string }) {
-  return <div className="h-full min-h-[120px] flex items-center justify-center text-sm text-[#6e7681]">{text}</div>;
+  return (
+    <div className="h-full min-h-[120px] flex items-center justify-center text-sm text-[#6e7681]">{text}</div>
+  );
 }
 
 /* ----------------------------------------------------------------
@@ -736,9 +875,14 @@ function EmptyHint({ text }: { text: string }) {
 function ProfileSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <div className="h-24 bg-[#161b22] border border-[#2d333b] rounded-lg" />
-      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-5 gap-2">
-        {Array.from({ length: 10 }).map((_, i) => (
+      <div className="h-28 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="h-20 bg-[#161b22] border border-[#2d333b] rounded-lg" />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
+        {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="h-20 bg-[#161b22] border border-[#2d333b] rounded-lg" />
         ))}
       </div>

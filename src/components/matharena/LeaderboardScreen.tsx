@@ -6,26 +6,30 @@ import { AlertCircle } from "lucide-react";
 import { Btn, Panel, PageTitle, SectionLabel, RankBadge, Tabs, DataTable } from "@/components/matharena/ui";
 import { api, type LeaderboardEntry } from "@/lib/api";
 import { useApp } from "@/lib/store";
+import type { Universe } from "@/lib/game/progression";
 import { cn } from "@/lib/utils";
 
 /* ============================================================
    LeaderboardScreen — dense Chess.com style table
+   Toggle d'univers : Compétitif / Arène (sync useApp)
    ============================================================ */
 
-type Filter = "all" | "top" | "rising";
+type UniverseFilter = Universe;
 
 export default function LeaderboardScreen() {
   const setView = useApp((s) => s.setView);
+  const universe = useApp((s) => s.universe);
+  const setUniverse = useApp((s) => s.setUniverse);
+
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (u: Universe) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getLeaderboard();
+      const data = await api.getLeaderboard(u);
       setEntries(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
@@ -35,20 +39,13 @@ export default function LeaderboardScreen() {
   }, []);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    void reload(universe);
+  }, [universe, reload]);
 
-  const filtered = useMemo(() => {
-    if (filter === "top") return entries.slice(0, 10);
-    if (filter === "rising") {
-      // "rising" = ceux avec le meilleur winrate mais elo < 1300 (sous Or)
-      return entries
-        .filter((e) => e.elo < 1300)
-        .sort((a, b) => b.winrate - a.winrate)
-        .slice(0, 25);
-    }
-    return entries;
-  }, [entries, filter]);
+  const subtitle =
+    universe === "competitive"
+      ? "Elo officiel — pur skill, sans sorts ni classes."
+      : "Elo arène — gaming, classes, sorts et combos.";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -57,17 +54,16 @@ export default function LeaderboardScreen() {
         <div>
           <PageTitle>Classement</PageTitle>
           <p className="mt-1 text-sm text-[#9ba4b0]">
-            {loading ? "Chargement…" : `${entries.length} joueurs · top mondiaux`}
+            {loading ? "Chargement…" : subtitle}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Tabs<Filter>
-            value={filter}
-            onChange={setFilter}
+          <Tabs<UniverseFilter>
+            value={universe}
+            onChange={(v) => setUniverse(v)}
             options={[
-              { value: "all", label: "Tous" },
-              { value: "top", label: "Top 10" },
-              { value: "rising", label: "En progression" },
+              { value: "competitive", label: "Compétitif" },
+              { value: "arena", label: "Arène" },
             ]}
           />
           <Btn size="sm" variant="secondary" onClick={() => setView("classselect")}>
@@ -83,23 +79,27 @@ export default function LeaderboardScreen() {
         <Panel className="p-6 flex items-center gap-3 text-sm text-[#9ba4b0]">
           <AlertCircle className="w-4 h-4 text-[#f85149] shrink-0" />
           <span className="flex-1">{error}</span>
-          <Btn size="sm" variant="secondary" onClick={() => void reload()}>
+          <Btn size="sm" variant="secondary" onClick={() => void reload(universe)}>
             Réessayer
           </Btn>
         </Panel>
-      ) : filtered.length === 0 ? (
+      ) : entries.length === 0 ? (
         <Panel className="p-10 text-center text-sm text-[#9ba4b0]">
-          Aucun joueur dans cette tranche.
+          Aucun joueur dans ce classement.
         </Panel>
       ) : (
         <Panel className="overflow-hidden">
-          <LeaderboardTable entries={filtered} />
+          <LeaderboardTable entries={entries} />
         </Panel>
       )}
 
       <div className="mt-4 flex items-center gap-2 text-xs text-[#6e7681]">
         <SectionLabel>Note</SectionLabel>
-        <span>Le classement est mis à jour après chaque partie classée.</span>
+        <span>
+          {universe === "competitive"
+            ? "Le classement compétitif prend en compte tous les modes sauf l'entraînement."
+            : "Le classement arène est basé sur les parties classées et blitz."}
+        </span>
       </div>
     </div>
   );
@@ -109,8 +109,10 @@ export default function LeaderboardScreen() {
    Table
    ---------------------------------------------------------------- */
 
+type LeaderboardRow = Record<string, React.ReactNode> & { _isMe?: boolean };
+
 function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
-  const rows = useMemo(
+  const rows = useMemo<LeaderboardRow[]>(
     () =>
       entries.map((e, i) => ({
         rank: <RankCell rank={i + 1} isMe={e.isMe} />,
@@ -135,16 +137,14 @@ function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
         games: <span className="font-mono text-[#9ba4b0]">{e.wins + e.losses}</span>,
         wins: <span className="font-mono text-[#2ea043]">{e.wins}</span>,
         losses: <span className="font-mono text-[#f85149]">{e.losses}</span>,
-        winrate: (
-          <span className="font-mono text-[#9ba4b0]">{e.winrate}%</span>
-        ),
+        winrate: <span className="font-mono text-[#9ba4b0]">{e.winrate}%</span>,
         _isMe: e.isMe,
       })),
     [entries],
   );
 
   return (
-    <DataTable
+    <DataTable<LeaderboardRow>
       columns={[
         { key: "rank", header: "#", className: "w-12" },
         { key: "player", header: "Joueur" },
@@ -158,7 +158,7 @@ function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
       ]}
       rows={rows}
       rowKey={(_, i) => String(i)}
-      highlight={(r) => (r as { _isMe: boolean })._isMe}
+      highlight={(r) => Boolean(r._isMe)}
     />
   );
 }

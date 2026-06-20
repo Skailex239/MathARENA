@@ -29,6 +29,7 @@ export function ResultsScreen() {
     let cancelled = false;
     api
       .saveMatch({
+        universe: lastResult.universe,
         playerClass: lastResult.playerClass,
         opponentClass: lastResult.opponentClass,
         opponentName: lastResult.opponentName,
@@ -46,7 +47,7 @@ export function ResultsScreen() {
         setSaved({
           eloChange: match.eloChange,
           xpGained: match.xpGained,
-          newElo: profile.elo,
+          newElo: match.eloAfter,
           newLevel: profile.level,
           leveledUp: profile.level > oldLevel,
         });
@@ -72,28 +73,38 @@ export function ResultsScreen() {
   }
 
   const won = lastResult.result === "WIN";
-  const playerDef = CLASSES[lastResult.playerClass];
-  const oppDef = CLASSES[lastResult.opponentClass];
+  const isArena = lastResult.universe === "arena";
+  const playerDef = lastResult.playerClass ? CLASSES[lastResult.playerClass] : null;
+  const oppDef = lastResult.opponentClass ? CLASSES[lastResult.opponentClass] : null;
+
+  // Compétitif : score ; Arène : PV
+  const primaryStatLabel = isArena ? "PV restants" : "Score final";
+  const primaryStatValue = isArena
+    ? `${lastResult.playerHP}`
+    : `${lastResult.playerHP} – ${lastResult.opponentHP}`;
 
   const stats = [
-    { label: "Meilleur combo", value: `x${lastResult.maxCombo || 0}` },
+    { label: primaryStatLabel, value: primaryStatValue },
     { label: "Temps moyen", value: lastResult.avgTimeMs > 0 ? `${(lastResult.avgTimeMs / 1000).toFixed(1)}s` : "—" },
     { label: "Précision", value: `${lastResult.accuracy}%` },
-    { label: "PV restants", value: `${lastResult.playerHP}` },
+    ...(isArena ? [{ label: "Meilleur combo", value: `x${lastResult.maxCombo || 0}` }] : []),
   ];
 
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
-      {/* Résultat sobre */}
       <Panel className="p-6">
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex items-center gap-2 mb-1">
           <span className={cn("text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded", won ? "text-[#2ea043] bg-[rgba(46,160,67,0.1)]" : "text-[#f85149] bg-[rgba(248,81,73,0.1)]")}>
             {won ? "Victoire" : "Défaite"}
           </span>
-          <span className="text-xs text-[#6e7681] font-mono">{lastResult.mode}</span>
+          <span className="text-xs text-[#6e7681] font-mono">
+            {isArena ? "ARÈNE" : "COMPÉTITIF"} · {lastResult.mode}
+          </span>
         </div>
         <h1 className="text-xl font-semibold text-[#e6edf3]">
-          {playerDef.name} vs {oppDef.name}
+          {isArena && playerDef && oppDef
+            ? `${playerDef.name} vs ${oppDef.name}`
+            : "Duel compétitif"}
         </h1>
         <p className="text-sm text-[#9ba4b0] mt-0.5">vs {lastResult.opponentName}</p>
       </Panel>
@@ -106,7 +117,9 @@ export function ResultsScreen() {
           <div>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs font-medium uppercase tracking-wider text-[#6e7681]">Elo</div>
+                <div className="text-xs font-medium uppercase tracking-wider text-[#6e7681]">
+                  Elo {isArena ? "arène" : "compétitif"}
+                </div>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="font-mono text-2xl font-medium text-[#e6edf3]">{saved.newElo}</span>
                   <span

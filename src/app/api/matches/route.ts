@@ -1,4 +1,5 @@
 // MathArena — Matches API: list match history (GET) and record a new duel (POST).
+// Supports two universes: "competitive" (pure skill) & "arena" (gaming).
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
@@ -8,18 +9,20 @@ import {
   toProfile,
   type MatchResult,
   type GameMode,
+  type Universe,
 } from '@/lib/game/progression';
 import type { Match, Player } from '@prisma/client';
 
 /** Public match shape returned to the client. */
 interface MatchDto {
   id: number;
-  playerClass: string;
-  opponentClass: string;
+  universe: Universe;
+  playerClass: string | null;
+  opponentClass: string | null;
   opponentName: string;
   result: string;
-  playerHP: number;
-  opponentHP: number;
+  playerHP: number;   // arène: PV restants ; compétitif: score joueur
+  opponentHP: number; // arène: PV restants ; compétitif: score adverse
   maxCombo: number;
   avgTimeMs: number;
   accuracy: number;
@@ -33,6 +36,7 @@ interface MatchDto {
 function toMatchDto(m: Match): MatchDto {
   return {
     id: m.id,
+    universe: (m.universe as Universe) ?? 'competitive',
     playerClass: m.playerClass,
     opponentClass: m.opponentClass,
     opponentName: m.opponentName,
@@ -79,11 +83,12 @@ export async function GET(req: NextRequest) {
 }
 
 interface PostBody {
-  playerClass: string;
-  opponentClass: string;
+  universe: Universe;
+  playerClass: string | null; // arène uniquement
+  opponentClass: string | null;
   opponentName: string;
   result: MatchResult;
-  playerHP: number;
+  playerHP: number;   // arène: PV ; compétitif: score
   opponentHP: number;
   maxCombo: number;
   avgTimeMs: number;
@@ -94,19 +99,20 @@ interface PostBody {
 function isMatchResult(v: unknown): v is MatchResult {
   return v === 'WIN' || v === 'LOSE';
 }
-
 function isGameMode(v: unknown): v is GameMode {
-  return (
-    v === 'PRACTICE' || v === 'QUICK' || v === 'BLITZ' || v === 'RANKED'
-  );
+  return v === 'PRACTICE' || v === 'QUICK' || v === 'BLITZ' || v === 'RANKED';
+}
+function isUniverse(v: unknown): v is Universe {
+  return v === 'competitive' || v === 'arena';
 }
 
 function validateBody(body: unknown): body is PostBody {
   if (!body || typeof body !== 'object') return false;
   const b = body as Record<string, unknown>;
   return (
-    typeof b.playerClass === 'string' && b.playerClass.trim().length > 0 &&
-    typeof b.opponentClass === 'string' && b.opponentClass.trim().length > 0 &&
+    isUniverse(b.universe) &&
+    (b.playerClass === null || typeof b.playerClass === 'string') &&
+    (b.opponentClass === null || typeof b.opponentClass === 'string') &&
     typeof b.opponentName === 'string' && b.opponentName.trim().length > 0 &&
     isMatchResult(b.result) &&
     typeof b.playerHP === 'number' && Number.isFinite(b.playerHP) &&
@@ -136,34 +142,50 @@ export async function POST(req: NextRequest) {
 
     const player: Player = await db.player.upsert({
       where: { id: 1 },
-      create: { id: 1, isBot: false, name: 'Joueur', elo: 1000 },
+      create: { id: 1, isBot: false, name: 'Joueur', elo: 1000, eloArena: 1000 },
       update: {},
     });
 
-    // Opponent is pair-matched at the player's current Elo.
-    const opponentElo = player.elo;
-    const eloChange = computeEloChange(player.elo, opponentElo, body.result, body.mode);
-    const xpGained = computeXpGained(body.result, body.maxCombo, body.avgTimeMs, body.mode);
+    const isCompetitive = body.universe === 'competitive';
 
-    const newElo = player.elo + eloChange;
+    // Elo concerné selon l'univers ; adversaire pairé sur ce même Elo.
+    const relevantElo = isCompetitive ? player.elo : player.eloArena;
+    const opponentElo = relevantElo;
+    const eloChange = computeEloChange(relevantElo, opponentElo, body.result, body.mode, body.universe);
+    const xpGained = computeXpGained(body.result, body.maxCombo, body.avgTimeMs, body.mode, body.universe);
+
+    const newElo = relevantElo + eloChange;
     const newXp = player.xp + xpGained;
-    const newWins = player.wins + (body.result === 'WIN' ? 1 : 0);
-    const newLosses = player.losses + (body.result === 'LOSE' ? 1 : 0);
-    const newBestCombo = Math.max(player.bestCombo, body.maxCombo);
     const newLevel = levelFromXp(newXp);
 
-    // Create the Match row first, then update the player — atomically.
+    // Prépare l'update du joueur selon l'univers.
+    const playerUpdate: Record<string, unknown> = {
+      xp: newXp,
+      level: newLevel,
+    };
+    if (isCompetitive) {
+      playerUpdate.elo = newElo;
+      playerUpdate.wins = player.wins + (body.result === 'WIN' ? 1 : 0);
+      playerUpdate.losses = player.losses + (body.result === 'LOSE' ? 1 : 0);
+    } else {
+      playerUpdate.eloArena = newElo;
+      playerUpdate.winsArena = player.winsArena + (body.result === 'WIN' ? 1 : 0);
+      playerUpdate.lossesArena = player.lossesArena + (body.result === 'LOSE' ? 1 : 0);
+      playerUpdate.bestCombo = Math.max(player.bestCombo, body.maxCombo);
+    }
+
     const [createdMatch, updatedPlayer] = await db.$transaction([
       db.match.create({
         data: {
           playerId: 1,
-          playerClass: body.playerClass,
-          opponentClass: body.opponentClass,
+          universe: body.universe,
+          playerClass: isCompetitive ? null : body.playerClass,
+          opponentClass: isCompetitive ? null : body.opponentClass,
           opponentName: body.opponentName,
           result: body.result,
           playerHP: body.playerHP,
           opponentHP: body.opponentHP,
-          maxCombo: body.maxCombo,
+          maxCombo: isCompetitive ? 0 : body.maxCombo,
           avgTimeMs: body.avgTimeMs,
           accuracy: body.accuracy,
           mode: body.mode,
@@ -174,14 +196,7 @@ export async function POST(req: NextRequest) {
       }),
       db.player.update({
         where: { id: 1 },
-        data: {
-          elo: newElo,
-          xp: newXp,
-          level: newLevel,
-          wins: newWins,
-          losses: newLosses,
-          bestCombo: newBestCombo,
-        },
+        data: playerUpdate,
       }),
     ]);
 

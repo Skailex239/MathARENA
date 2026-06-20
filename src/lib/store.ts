@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ClassId, GameMode } from "./game/types";
+import type { Universe } from "./game/progression";
 
 export type View =
   | "home"
@@ -11,17 +12,18 @@ export type View =
   | "rules";
 
 export interface MatchResultPayload {
+  universe: Universe;
   result: "WIN" | "LOSE";
-  playerClass: ClassId;
-  opponentClass: ClassId;
+  playerClass: ClassId | null;   // arène uniquement
+  opponentClass: ClassId | null; // arène uniquement
   opponentName: string;
+  /** arène: PV restants ; compétitif: score du joueur */
   playerHP: number;
   opponentHP: number;
-  maxCombo: number;
+  maxCombo: number;              // arène uniquement
   avgTimeMs: number;
   accuracy: number;
   mode: GameMode;
-  /** réponse du serveur après sauvegarde du match */
   saved?: {
     eloChange: number;
     xpGained: number;
@@ -33,12 +35,14 @@ export interface MatchResultPayload {
 
 interface AppState {
   view: View;
-  selectedClass: ClassId;
+  universe: Universe;
+  selectedClass: ClassId;        // arène
   selectedMode: GameMode;
-  opponentClass: ClassId;
+  opponentClass: ClassId;        // arène
   opponentName: string;
   lastResult: MatchResultPayload | null;
   setView: (v: View) => void;
+  setUniverse: (u: Universe) => void;
   setSelection: (c: ClassId, m: GameMode) => void;
   setOpponent: (c: ClassId, name: string) => void;
   setLastResult: (r: MatchResultPayload | null) => void;
@@ -46,12 +50,14 @@ interface AppState {
 
 export const useApp = create<AppState>((set) => ({
   view: "home",
+  universe: "competitive",
   selectedClass: "guerrier",
   selectedMode: "QUICK",
   opponentClass: "mage",
   opponentName: "Vortex",
   lastResult: null,
   setView: (view) => set({ view }),
+  setUniverse: (universe) => set({ universe }),
   setSelection: (selectedClass, selectedMode) => set({ selectedClass, selectedMode }),
   setOpponent: (opponentClass, opponentName) => set({ opponentClass, opponentName }),
   setLastResult: (lastResult) => set({ lastResult }),
