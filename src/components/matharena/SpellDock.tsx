@@ -38,30 +38,26 @@ export function SpellDock({
   const handleSpell = (id: SpellId, cost: number) => {
     if (locked) return;
     if (!comboUnlocked) {
-      toast("Sorts verrouillés", { description: "Atteins un combo de 8 pour débloquer les sorts." });
+      toast("Sorts verrouillés", { description: "Combo ≥ 8 requis." });
       return;
     }
     if (energy < cost) {
-      toast("Énergie insuffisante", { description: `Il te faut ${cost} d'énergie.` });
+      toast("Énergie insuffisante", { description: `${cost} requis.` });
       return;
     }
-    const ok = onSpell(id);
-    if (!ok) toast("Impossible de lancer ce sort maintenant.");
+    onSpell(id);
   };
 
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-3">
+    <div className="rounded-lg border border-[#2d333b] bg-[#161b22] p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8b949e]">
-          Sorts & Compétences
-        </span>
-        <span className="text-[11px] text-[#8b949e] font-mono">
-          Combo <span className="text-white">{combo}</span> · Énergie{" "}
-          <span className="text-white">{energy}</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-[#6e7681]">Sorts</span>
+        <span className="text-[11px] font-mono text-[#9ba4b0]">
+          Combo {combo} · Énergie {energy}
         </span>
       </div>
 
-      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5">
         {SPELL_LIST.map((s) => {
           const ok = !locked && canSpell(s.id);
           return (
@@ -70,54 +66,54 @@ export function SpellDock({
               type="button"
               onClick={() => handleSpell(s.id, s.cost)}
               disabled={!ok}
-              title={`${s.name} — ${s.description} (coût ${s.cost})`}
+              title={`${s.name} — ${s.description} (${s.cost} énergie)`}
               className={cn(
-                "group relative flex flex-col items-center justify-center gap-0.5 rounded-lg border p-2 transition-all min-h-[56px]",
+                "flex flex-col items-center justify-center gap-0.5 rounded border py-1.5 px-1 transition-colors min-h-[44px]",
                 ok
-                  ? "border-[rgba(124,58,237,0.6)] bg-[rgba(124,58,237,0.1)] hover:bg-[rgba(124,58,237,0.2)] hover:-translate-y-0.5 cursor-pointer"
-                  : "border-[#30363d] bg-[#21262d] opacity-50 cursor-not-allowed",
+                  ? "border-[#2d333b] bg-[#1c2128] hover:border-[#3b82f6] hover:bg-[#22272e] cursor-pointer"
+                  : "border-[#232a33] bg-[#161b22] opacity-40 cursor-not-allowed",
               )}
             >
-              <span className="text-xl leading-none">{s.emoji}</span>
-              <span className="text-[10px] font-medium leading-none">{s.name}</span>
-              <span className="text-[9px] text-[#00d4ff] leading-none font-mono">{s.cost}⚡</span>
+              <span className="text-sm leading-none">{s.emoji}</span>
+              <span className="text-[9px] font-medium leading-none text-[#9ba4b0]">{s.name}</span>
+              <span className="text-[8px] font-mono leading-none text-[#6e7681]">{s.cost}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mt-2">
+      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
         <button
           type="button"
           onClick={() => {
             if (!locked && canShield()) onShield();
-            else if (!locked) toast("Bouclier indisponible", { description: "Il faut 40 d'énergie (max 30 de bouclier)." });
+            else if (!locked) toast("Bouclier indisponible", { description: "40 énergie requis." });
           }}
           disabled={locked || !canShield()}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-all min-h-[44px]",
+            "flex items-center justify-center gap-1.5 rounded border px-3 py-2 text-xs font-medium transition-colors min-h-[36px]",
             !locked && canShield()
-              ? "border-[rgba(34,197,94,0.6)] bg-[rgba(34,197,94,0.1)] hover:bg-[rgba(34,197,94,0.18)] cursor-pointer"
-              : "border-[#30363d] bg-[#21262d] opacity-50 cursor-not-allowed",
+              ? "border-[#2d333b] bg-[#1c2128] hover:border-[#2ea043] hover:bg-[#22272e] cursor-pointer"
+              : "border-[#232a33] bg-[#161b22] opacity-40 cursor-not-allowed",
           )}
         >
-          🛡️ Bouclier <span className="text-[10px] text-[#00d4ff] font-mono">40⚡</span>
+          Bouclier <span className="font-mono text-[10px] text-[#6e7681]">40</span>
         </button>
         <button
           type="button"
           onClick={() => {
             if (!locked && canUlt()) onUlt();
-            else if (!locked) toast("Ultime verrouillé", { description: "Atteins un combo de 10." });
+            else if (!locked) toast("Ultime verrouillé", { description: "Combo ≥ 10 requis." });
           }}
           disabled={locked || !canUlt()}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-all min-h-[44px]",
+            "flex items-center justify-center gap-1.5 rounded border px-3 py-2 text-xs font-medium transition-colors min-h-[36px]",
             !locked && canUlt()
-              ? "border-[#ff0080] bg-[rgba(255,0,128,0.12)] hover:bg-[rgba(255,0,128,0.2)] cursor-pointer animate-pulse-blue"
-              : "border-[#30363d] bg-[#21262d] opacity-50 cursor-not-allowed",
+              ? "border-[#3b82f6] bg-[rgba(59,130,246,0.1)] text-[#3b82f6] hover:bg-[rgba(59,130,246,0.18)] cursor-pointer"
+              : "border-[#232a33] bg-[#161b22] opacity-40 cursor-not-allowed",
           )}
         >
-          ⚡ {def.ultimate.name}
+          Ultime · {def.ultimate.name}
         </button>
       </div>
     </div>

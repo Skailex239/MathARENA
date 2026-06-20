@@ -4,12 +4,12 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   MathArena — Design System (Chess.com × Lichess × Valorant × GitHub dark)
-   Dark-first. No white backgrounds. Subtle glow. Sharp, fast, premium.
+   MathArena — Design System v2
+   Chess.com × Lichess × Faceit × Linear × GitHub Dark
+   Sober. Professional. Dense. Dark-only. Minimal color.
    ============================================================ */
 
 @theme inline {
-  /* color tokens mapped from raw vars */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -30,221 +30,149 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --color-panel: var(--panel);
-  --color-panel-2: var(--panel-2);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
-  --color-cyan: var(--c);
-  --color-purple: var(--p);
-  --color-amber: var(--a);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
   --color-success: var(--success);
   --color-danger: var(--danger);
-  --color-info: var(--info);
+  --color-warning: var(--warning);
 
-  /* fonts */
   --font-sans: var(--font-sans);
-  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
 
-  /* sidebar (shadcn) */
-  --color-sidebar: var(--panel);
-  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar: var(--surface-1);
+  --color-sidebar-foreground: var(--text-primary);
   --color-sidebar-primary: var(--primary);
   --color-sidebar-primary-foreground: var(--primary-foreground);
-  --color-sidebar-accent: var(--panel-2);
-  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-accent: var(--surface-hover);
+  --color-sidebar-accent-foreground: var(--text-primary);
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);
 
-  /* charts */
-  --color-chart-1: #2563eb;
-  --color-chart-2: #00d4ff;
-  --color-chart-3: #7c3aed;
-  --color-chart-4: #f59e0b;
-  --color-chart-5: #22c55e;
+  --color-chart-1: #3b82f6;
+  --color-chart-2: #2ea043;
+  --color-chart-3: #d29922;
+  --color-chart-4: #f85149;
+  --color-chart-5: #9ba4b0;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 :root {
-  /* backgrounds — GitHub dark */
-  --background: #0d1117;   /* deep navy dark */
-  --foreground: #ffffff;
+  /* backgrounds — GitHub dark / Linear */
+  --background: #0e1116;
+  --foreground: #e6edf3;
 
-  --card: #161b22;         /* secondary background (cards/panels) */
-  --card-foreground: #ffffff;
+  --card: #161b22;
+  --card-foreground: #e6edf3;
   --popover: #161b22;
-  --popover-foreground: #ffffff;
+  --popover-foreground: #e6edf3;
 
-  --primary: #2563eb;      /* electric blue */
+  --primary: #3b82f6;      /* calm blue, only accent */
   --primary-foreground: #ffffff;
 
-  --secondary: #21262d;    /* tertiary background */
-  --secondary-foreground: #ffffff;
+  --secondary: #1c2128;
+  --secondary-foreground: #e6edf3;
 
-  --muted: #21262d;
-  --muted-foreground: #8b949e;
+  --muted: #1c2128;
+  --muted-foreground: #9ba4b0;
 
-  --accent: #21262d;
-  --accent-foreground: #ffffff;
+  --accent: #22272e;
+  --accent-foreground: #e6edf3;
 
-  --destructive: #ef4444;
+  --destructive: #f85149;
   --destructive-foreground: #ffffff;
 
-  --border: #30363d;       /* default border */
-  --input: #21262d;
-  --ring: #2563eb;
+  --border: #2d333b;
+  --input: #1c2128;
+  --ring: #3b82f6;
 
-  /* MathArena semantic */
-  --panel: #161b22;
-  --panel-2: #21262d;
-  --border-strong: #484f58;
-  --c: #00d4ff;            /* cyan */
-  --p: #7c3aed;            /* purple */
-  --a: #f59e0b;            /* amber */
-  --success: #22c55e;
-  --danger: #ef4444;
-  --info: #3b82f6;
+  /* surfaces */
+  --surface-1: #161b22;
+  --surface-2: #1c2128;
+  --surface-hover: #22272e;
 
-  /* rank colors */
-  --rank-iron: #8b8b8b;
-  --rank-bronze: #cd7f32;
-  --rank-silver: #c0c0c0;
-  --rank-gold: #ffd700;
-  --rank-platinum: #00ced1;
-  --rank-diamond: #b9f2ff;
-  --rank-master: #9b59b6;
-  --rank-grandmaster: #ff4500;
-  --rank-legend: #ff0080;
+  --border-subtle: #232a33;
+  --border-strong: #444c56;
 
-  --radius: 12px;
+  --text-primary: #e6edf3;
+  --text-secondary: #9ba4b0;
+  --text-muted: #6e7681;
+
+  --success: #2ea043;
+  --danger: #f85149;
+  --warning: #d29922;
+
+  --radius: 8px;
 }
 
 @layer base {
   * {
     @apply border-border;
-    outline-color: color-mix(in oklab, var(--ring) 60%, transparent);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
   html {
     color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(circle at 15% -10%, rgba(37, 99, 235, 0.10), transparent 45%),
-      radial-gradient(circle at 90% 0%, rgba(124, 58, 237, 0.08), transparent 40%);
-    background-attachment: fixed;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: rgba(37, 99, 235, 0.35);
+    background: rgba(59, 130, 246, 0.3);
     color: #fff;
   }
 }
 
 /* ============================================================
-   Utilities — MathArena
+   Utilities — MathArena (sober, minimal)
    ============================================================ */
 @layer utilities {
-  /* glow shadows */
-  .glow-blue   { box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6), 0 0 22px rgba(37, 99, 235, 0.28); }
-  .glow-cyan   { box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.55), 0 0 22px rgba(0, 212, 255, 0.28); }
-  .glow-purple { box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.55), 0 0 22px rgba(124, 58, 237, 0.28); }
-  .glow-amber  { box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.55), 0 0 22px rgba(245, 158, 11, 0.25); }
-  .glow-danger { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.6), 0 0 22px rgba(239, 68, 68, 0.3); }
-  .glow-success{ box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.6), 0 0 22px rgba(34, 197, 94, 0.28); }
-
-  .text-glow-blue { text-shadow: 0 0 14px rgba(37, 99, 235, 0.55); }
-  .text-glow-cyan { text-shadow: 0 0 14px rgba(0, 212, 255, 0.6); }
-  .text-glow-amber { text-shadow: 0 0 14px rgba(245, 158, 11, 0.55); }
-
-  /* subtle grid backdrop for hero/arena */
-  .grid-bg {
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  /* custom scrollbar */
-  .scrollbar-neo::-webkit-scrollbar { width: 8px; height: 8px; }
-  .scrollbar-neo::-webkit-scrollbar-track { background: #0d1117; }
-  .scrollbar-neo::-webkit-scrollbar-thumb {
-    background: #30363d;
+  .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #2d333b;
     border-radius: 999px;
   }
-  .scrollbar-neo::-webkit-scrollbar-thumb:hover { background: #484f58; }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #444c56; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* clip hex avatar */
-  .clip-hex { clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); }
+  /* subtle correct/incorrect input feedback (no glow, no flash background) */
+  .input-correct { border-color: #2ea043 !important; }
+  .input-incorrect { border-color: #f85149 !important; }
 }
 
 /* ============================================================
-   Animations
+   Animations — minimal, subtle
    ============================================================ */
 @layer utilities {
   @keyframes ma-shake {
     0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-6px); }
-    40% { transform: translateX(6px); }
-    60% { transform: translateX(-4px); }
-    80% { transform: translateX(4px); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
   }
-  .animate-shake { animation: ma-shake 0.4s ease-in-out; }
+  .animate-shake { animation: ma-shake 0.3s ease-in-out; }
 
-  @keyframes ma-correct {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); box-shadow: 0 0 0 2px rgba(34,197,94,0.8), 0 0 28px rgba(34,197,94,0.4); }
-    100% { transform: scale(1); }
+  @keyframes ma-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
-  .animate-correct { animation: ma-correct 0.4s ease-out; }
+  .animate-fade-in { animation: ma-fade-in 0.2s ease-out; }
 
-  @keyframes ma-flash-red {
-    0% { background-color: rgba(239, 68, 68, 0.35); }
-    100% { background-color: transparent; }
+  @keyframes ma-timer-urgent {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
   }
-  .animate-flash-red { animation: ma-flash-red 0.5s ease-out; }
-
-  @keyframes ma-flash-green {
-    0% { background-color: rgba(34, 197, 94, 0.3); }
-    100% { background-color: transparent; }
-  }
-  .animate-flash-green { animation: ma-flash-green 0.5s ease-out; }
-
-  @keyframes ma-pulse-danger {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(239,68,68,0.5), 0 0 14px rgba(239,68,68,0.25); }
-    50% { box-shadow: 0 0 0 1px rgba(239,68,68,0.9), 0 0 28px rgba(239,68,68,0.55); }
-  }
-  .animate-pulse-danger { animation: ma-pulse-danger 1.1s ease-in-out infinite; }
-
-  @keyframes ma-pulse-blue {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(37,99,235,0.5), 0 0 16px rgba(37,99,235,0.25); }
-    50% { box-shadow: 0 0 0 1px rgba(37,99,235,0.9), 0 0 30px rgba(37,99,235,0.5); }
-  }
-  .animate-pulse-blue { animation: ma-pulse-blue 1.8s ease-in-out infinite; }
-
-  @keyframes ma-float-up {
-    0% { transform: translateY(0) scale(0.9); opacity: 0; }
-    18% { opacity: 1; }
-    100% { transform: translateY(-48px) scale(1.15); opacity: 0; }
-  }
-  .animate-float-up { animation: ma-float-up 1s ease-out forwards; }
-
-  @keyframes ma-ping-soft {
-    0% { transform: scale(1); opacity: 0.7; }
-    75%, 100% { transform: scale(2.2); opacity: 0; }
-  }
-  .animate-ping-soft::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 9999px;
-    background: currentColor;
-    animation: ma-ping-soft 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
-  }
+  .animate-timer-urgent { animation: ma-timer-urgent 0.8s ease-in-out infinite; }
 }

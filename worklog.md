@@ -241,3 +241,67 @@ Work Log:
 
 Stage Summary:
 - Redesign livré et vérifié. App premium esport dark-first.
+
+---
+Task ID: 6
+Agent: ui-sober-profile-leaderboard-rules (general-purpose)
+Task: Restyle sobre Profile/Leaderboard/Rules (Chess.com dashboard style).
+
+Work Log:
+- Lecture du worklog (contexte : design system sobre Chess.com × Lichess × Faceit × Linear × GitHub dark déjà posé via globals.css + ui.tsx + divisions.ts). Lecture des fichiers de référence : globals.css (palette neutre + accent #3B82F6, semantic success/danger/warning), ui.tsx (primitives Btn/Panel/PageTitle/SectionLabel/StatTile/HealthBar/EnergyBar/RankBadge/Tabs/DataTable), divisions.ts (9 rangs Fer→Légende), api.ts (Profile/MatchRecord/LeaderboardEntry), store.ts (View + setView), classes.ts (5 classes), spells.ts (7 sorts), math.ts (CATEGORY_LABEL/DIFFICULTY_LABEL), types.ts, page.tsx (router view).
+- Réécriture de `src/components/matharena/ProfileScreen.tsx` :
+  - Layout sidebar desktop (w-200px sticky) + barre horizontale scrollable (scrollbar-none) sur mobile. Nav 5 items : Overview / Stats / Games (réels) + Achievements / Settings (état "Bientôt disponible" sobre).
+  - Overview : en-tête sobre Panel avec nom éditable (Pencil → Input + Save via api.patchProfile, Echap annule, Entrée sauve, maxLength 24, toast sonner), RankBadge(elo), niveau + barre XP custom (div simple bleu #3B82F6, pas de gradient), Elo en JetBrains Mono. Grille 10 StatTiles (Elo/Niveau/Parties/V/D/Winrate/Meilleur combo/Vitesse moyenne/Précision/Classe préférée) responsive (2→5 colonnes). Section "Historique du rating" : LineChart Recharts sobre (ligne #3B82F6, pas de gradient fill, axes #6E7681, grid #232A33, tooltip sombre #161B22) hauteur 220px, data = matchs triés date asc, X=match#, Y=eloAfter. Section "Parties récentes" : DataTable dense 8 colonnes (Date relative/Adversaire/Classe/Résultat WIN #2EA043-LOSE #F85149/Elo ±/Combo/Temps/Mode), 10 derniers.
+  - Stats tab : BarChart Recharts sobre (wins #2EA043 / losses #F85149 stackées, grid #232A33, axes #6E7681, Legend) hauteur 260px + DataTable "Statistiques par mode" (Mode/Parties/V/D/Winrate/Temps moyen/Précision) + 4 StatTiles profil global.
+  - Games tab : DataTable complète 10 colonnes (Date/Adversaire/Classe/Adv. classe/Résultat/Elo ±/Combo/Temps/Précision/Mode) avec scroll-x scrollbar-thin.
+  - Achievements/Settings tabs : Panel sobre "Bientôt disponible".
+  - Fetch parallèle getProfile + getMatches(50) au mount, skeletons sobres (panels gris), error state avec retry (AlertCircle rouge + Btn "Réessayer"). Empty state si 0 match : Panel + Clock + "Aucune partie jouée" + Btn "Jouer" → setView('classselect'). Boutons communs en bas (Nouveau duel + Classement).
+- Réécriture de `src/components/matharena/LeaderboardScreen.tsx` :
+  - Header : PageTitle "Classement" + sous-titre gris (count joueurs) + Tabs filtres (Tous / Top 10 / En progression) + Btn "Nouveau duel".
+  - Table full-width dense via DataTable : colonnes Rang (# dans badge w-6 h-6, or-argent-bronze colorés)/Joueur (nom + badge "TOI" bleu si isMe + badge "BOT" neutre si isBot)/Division (RankBadge(elo))/Elo (mono)/Niveau (mono)/Parties/V (#2EA043 mono)/D (#F85149 mono)/Winrate (mono). Ligne isMe surlignée (rgba(59,130,246,0.08)) via prop `highlight`.
+  - PAS de podium décoratif, juste la table dense scannable. Scroll-x scrollbar-thin sur mobile.
+  - Note bas de page avec SectionLabel "Note" + texte gris. Fetch getLeaderboard, skeletons sobres (lignes gris), error state avec retry.
+- Réécriture de `src/components/matharena/RulesScreen.tsx` :
+  - Style documentation Linear/GitHub. PageTitle "Comment jouer" + intro 14px gris + Btn "Lancer un duel" (Swords icon).
+  - Section helper `Section` : SectionLabel (uppercase gris) + H2 18px font-semibold + intro optionnel 14px gris.
+  - 7 sections très espacées (space-y-12) :
+    1. Principe — 4 StatTiles (PV 100 + Heart rouge / Énergie 0→100 + Zap bleu / Bouclier +10 + Shield gris / Ultime combo 10 + Sparkles bleu), valeurs en JetBrains Mono.
+    2. Dégâts selon la vitesse — DataTable 3 colonnes (Temps/Dégâts/Type) avec 4 lignes (<2s=20 CRIT rouge / 2-4s=15 / 4-6s=10 / 6-10s=5) + 2 notes AlertTriangle ambre (mauvaise réponse, timeout).
+    3. Combos — DataTable 3 colonnes (Combo/Multiplicateur/Effet) avec 4 lignes (3→×1,5 / 5→×2 / 8→×3 + sorts / 10→Ultime), multiplicateurs en bleu mono.
+    4. Classes — DataTable 6 colonnes (Classe/PV/Combo ×2/Passif/Ultime/Faiblesse) pour les 5 classes, PAS de cards colorées, juste emoji + texte sobre.
+    5. Sorts — DataTable 4 colonnes (Sort/Coût mono bleu/Cible badge Soi vert ou Adv. rouge/Description) pour les 7 sorts.
+    6. Modes — DataTable 3 colonnes (Mode/Identifiant mono gris/Description) pour 4 modes.
+    7. Divisions — DataTable 4 colonnes (Tier mono/Division avec dot couleur inline/Couleur swatch + hex mono/Elo minimum mono) pour 9 divisions.
+- Vérifications :
+  - `bun run lint` : 0 erreur, 0 warning.
+  - `bunx tsc --noEmit` : 0 erreur sur les 3 fichiers créés. Erreurs pré-existantes dans `examples/` (socket.io) et `skills/` non concernées.
+  - Erreurs TS pré-existantes (NON introduites par cette task) : `HomeScreen.tsx`, `ClassSelectScreen.tsx`, `CombatantPanel.tsx` importent `SectionTitle` et `ComboBadge` qui n'existent plus dans `ui.tsx` (supprimés par le passage au design system sobre). Ces fichiers ne sont PAS dans le scope de cette task (Profil/Leaderboard/Rules uniquement) → laissés en l'état. Conséquence : la route `/` retourne 500 en SSR car HomeScreen tente de rendre `SectionTitle` (undefined). Les écrans Profile/Leaderboard/Rules ne peuvent pas être testés end-to-end via le routeur tant que ces imports ne sont pas corrigés par un autre subagent.
+- Design system strictement appliqué : palette 90% neutre (#0E1116/#161B22/#1C2128/#22272E + texte #E6EDF3/#9BA4B0/#6E7681), 10% bleu #3B82F6 (actions + barre XP + multiplicateurs), semantic success #2EA043 / danger #F85149 / warning #D29922 sparingly (wins/losses, AlertTriangle). PAS de violet, PAS de rose, PAS d'orange, PAS de glow, PAS de shadow, PAS de gradient, PAS de lift. Fonts Inter partout + JetBrains Mono pour Elo/chiffres/timers/ratings. Composants plats radius 6-8px via primitives ui.tsx. Tables denses zebra subtle + hover via DataTable. Icônes lucide w-3.5/4 h-3.5/4 monochromes text-[#9ba4b0]/text-[#6e7681]. Badges petits (11px uppercase) fond très léger teinté. Pas de navbar/footer ajoutés (gérés par page.tsx).
+
+Stage Summary:
+- 3 fichiers réécrits (écrasés) : `src/components/matharena/ProfileScreen.tsx` (~750 lignes, sidebar + Overview/Stats/Games/ComingSoon + LineChart + BarChart + 2 DataTables), `src/components/matharena/LeaderboardScreen.tsx` (~195 lignes, table dense avec filtres Tabs), `src/components/matharena/RulesScreen.tsx` (~430 lignes, 7 sections Linear/GitHub docs). Tous 'use client', TypeScript strict sans `any`, cn() partout.
+- Lint : 0 erreur, 0 warning. Type-check : 0 erreur sur les 3 fichiers. Compilation Turbopack : ✓ (dev.log propre pour les 3 fichiers).
+- Design Chess.com dashboard sobre appliqué intégralement : primitives ui.tsx (Btn/Panel/PageTitle/SectionLabel/StatTile/RankBadge/Tabs/DataTable), palette neutre + accent bleu unique, fonts Inter + JetBrains Mono, dark-only, dense et scannable, PAS de déco glow/gradient/lift.
+- Non modifié : navbar/footer (page.tsx), store, API, game data, globals.css, ui.tsx, divisions.ts.
+- Problème à signaler : `HomeScreen.tsx`, `ClassSelectScreen.tsx`, `CombatantPanel.tsx` sont cassés (imports `SectionTitle`/`ComboBadge` supprimés du nouveau ui.tsx) → route `/` retourne 500 en SSR. À corriger par un autre subagent (hors scope de cette task 6). Les 3 écrans Profile/Leaderboard/Rules sont prêts et fonctionnels dès que la navigation sera restaurée.
+
+---
+Task ID: redesign-v2 (1-7)
+Agent: main (Z.ai Code)
+Task: Refonte vers dashboard compétitif sobre (Chess.com/Lichess/Faceit/Linear/GitHub dark).
+
+Work Log:
+- globals.css : palette limitée neutres + 1 accent bleu #3B82F6. Supprimé tous les glow/gradient décoratifs/animations flashy. Gardé shake (input), timer-urgent, fade-in subtils.
+- layout.tsx : Inter + JetBrains Mono uniquement (retiré Syne). Pas de display font.
+- divisions.ts : 9 rangs, couleurs appliquées sobrement (texte + bordure fine).
+- ui.tsx : primitives sobres — Btn plat radius 6px sans glow, Panel #161B22 border #2D333B sans gradient/lift, PageTitle (28px), SectionLabel (12px uppercase), StatTile, HealthBar compacte, EnergyBar, RankBadge minimal, Tabs (style Chess.com), DataTable (dense zebra+hover).
+- Navbar sobre (h-12, liens Accueil/Jouer/Classement/Profil + Connexion).
+- HomeScreen = DASHBOARD (PAS de hero) : zone play gauche (tabs mode + Lancer + parties récentes + classes) + sidebar droite (joueurs en ligne live + top joueurs + actualités).
+- ClassSelectScreen sobre : tabs mode + liste horizontale classes monochrome + détail texte + petit panneau adversaire + CTA compact à droite.
+- DuelScreen minimal : top bar (abandon|timer centre|mode), 2 panneaux L/R, question mono centre, input (flash bordure vert/rouge), sorts + log mono bas.
+- CombatantPanel/SpellDock/DuelLog sobres (icônes monochromes, pas de glow, log type chess move log mono).
+- ResultsScreen sobre (badge résultat + Elo + XP + stats en table).
+- Subagent 6 : ProfileScreen (sidebar + StatTiles + LineChart Elo + DataTable), LeaderboardScreen (table dense full-width), RulesScreen (style doc Linear).
+
+Stage Summary:
+- Vérifié Agent Browser + VLM : home sobre dashboard (pas mobile-game, 3 couleurs max, cards plates, tables denses), duel minimal dense, results/profile/leaderboard/rules sobres. Mobile 390px validé (pas d'overflow, duel lisible). Lint 0 erreurs. DB reset. Push sur main.

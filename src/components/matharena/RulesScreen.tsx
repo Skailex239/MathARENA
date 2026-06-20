@@ -1,486 +1,427 @@
-'use client';
+"use client";
 
-import { type ReactNode } from 'react';
-import {
-  Heart, Zap, Shield, Sparkles, Flame, Timer, Swords, Target,
-  type LucideIcon,
-} from 'lucide-react';
+import * as React from "react";
+import { Heart, Zap, Shield, Sparkles, AlertTriangle, Swords } from "lucide-react";
 
-import { cn } from '@/lib/utils';
-import { CLASS_LIST } from '@/lib/game/classes';
-import { SPELL_LIST } from '@/lib/game/spells';
-import { DIVISIONS } from '@/lib/game/divisions';
-import { Btn, Panel, SectionTitle } from '@/components/matharena/ui';
-import { useApp } from '@/lib/store';
+import { Panel, PageTitle, SectionLabel, StatTile, DataTable } from "@/components/matharena/ui";
+import { Btn } from "@/components/matharena/ui";
+import { useApp } from "@/lib/store";
+import { CLASS_LIST } from "@/lib/game/classes";
+import { SPELL_LIST } from "@/lib/game/spells";
+import { DIVISIONS } from "@/lib/game/divisions";
+import { cn } from "@/lib/utils";
 
-/* ------------------------------------------------------------------ */
-/*  Data                                                              */
-/* ------------------------------------------------------------------ */
-
-interface DamageTier {
-  time: string;
-  label: string;
-  dmg: number;
-  color: string;
-}
-
-const DAMAGE_TIERS: DamageTier[] = [
-  { time: '< 2 s', label: 'CRIT', dmg: 20, color: '#ef4444' },
-  { time: '2 – 4 s', label: 'Élevé', dmg: 15, color: '#f59e0b' },
-  { time: '4 – 6 s', label: 'Standard', dmg: 10, color: '#00d4ff' },
-  { time: '6 – 10 s', label: 'Faible', dmg: 5, color: '#7c3aed' },
-];
-
-const COMBO_TIERS = [
-  { combo: 3, mult: 'x1.5', desc: 'Combo déclenché — dégâts amplifiés.', color: '#f59e0b' },
-  { combo: 5, mult: 'x2', desc: 'Dégâts doublés (seuil ajusté par classe).', color: '#7c3aed' },
-  { combo: 8, mult: 'x3', desc: 'Sorts disponibles — dépense ton énergie.', color: '#00d4ff' },
-  { combo: 10, mult: 'ULTIME', desc: 'Ultime de classe débloqué.', color: '#ef4444' },
-];
-
-interface ModeInfo {
-  id: string;
-  emoji: string;
-  name: string;
-  desc: string;
-  elo: boolean;
-  color: string;
-}
-
-const MODES: ModeInfo[] = [
-  {
-    id: 'PRACTICE',
-    emoji: '🧪',
-    name: 'Practice',
-    desc: "Entraînement contre une IA passive. 0 Elo, 0 pression — parfait pour découvrir les mécaniques.",
-    elo: false,
-    color: '#7c3aed',
-  },
-  {
-    id: 'QUICK',
-    emoji: '⚡',
-    name: 'Quick',
-    desc: "Match rapide contre l'IA, sans enjeu (0 Elo). Idéal pour s'échauffer.",
-    elo: false,
-    color: '#f59e0b',
-  },
-  {
-    id: 'BLITZ',
-    emoji: '🔥',
-    name: 'Blitz',
-    desc: '3 secondes par question. Mode nerveux qui rapporte de l\'Elo.',
-    elo: true,
-    color: '#ef4444',
-  },
-  {
-    id: 'RANKED',
-    emoji: '🏆',
-    name: 'Ranked',
-    desc: 'Match classé contre une IA adaptative. Difficulté croissante, Elo en jeu.',
-    elo: true,
-    color: '#2563eb',
-  },
-];
-
-const PRINCIPLE_TILES: { icon: LucideIcon; label: string; value: string; desc: string; color: string }[] = [
-  { icon: Heart, label: 'PV', value: '100', desc: 'Points de vie', color: '#ef4444' },
-  { icon: Zap, label: 'Énergie', value: '0-100', desc: 'Pour lancer des sorts', color: '#f59e0b' },
-  { icon: Shield, label: 'Bouclier', value: '+10', desc: 'Absorbe les dégâts', color: '#22c55e' },
-  { icon: Sparkles, label: 'Ultime', value: 'Combo 10', desc: 'Débloqué via combos', color: '#00d4ff' },
-];
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
-function RuleSectionTitle({
-  children,
-  subtitle,
-}: {
-  children: ReactNode;
-  subtitle?: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="mt-1.5 h-5 w-1 shrink-0 rounded-full bg-[#2563eb] shadow-[0_0_10px_rgba(37,99,235,0.6)]" />
-      <div className="min-w-0">
-        <SectionTitle className="text-xl sm:text-2xl">{children}</SectionTitle>
-        {subtitle && <p className="mt-0.5 text-sm text-[#8b949e]">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
-
-function SectionWrap({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return <section className="space-y-4">{children}</section>;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                         */
-/* ------------------------------------------------------------------ */
+/* ============================================================
+   RulesScreen — Linear / GitHub docs style
+   Sobre, dense, peu de couleur
+   ============================================================ */
 
 export default function RulesScreen() {
   const setView = useApp((s) => s.setView);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-12 pt-6 lg:px-8">
-      {/* Hero */}
-      <Panel className="relative overflow-hidden p-6 sm:p-8">
-        <div className="grid-bg pointer-events-none absolute inset-0 opacity-40" />
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(circle at 10% 0%, rgba(37,99,235,0.18), transparent 55%), radial-gradient(circle at 90% 0%, rgba(124,58,237,0.14), transparent 50%)',
-          }}
-        />
-        <div className="relative z-10 flex flex-col items-center gap-3 text-center">
-          <div className="text-5xl">🧠</div>
-          <SectionTitle className="text-3xl text-glow-cyan sm:text-4xl">Comment jouer</SectionTitle>
-          <p className="max-w-2xl text-sm text-[#8b949e]">
-            MathArena est un duel 1v1 de calcul mental en temps réel. Ton cerveau est ton arme :
-            réponds vite, enchaîne les combos, déchaîne ton ultime.
-          </p>
-          <Btn size="lg" onClick={() => setView('classselect')} className="mt-2 min-h-11">
-            <Swords className="size-4" /> Lancer un duel
+    <div className="mx-auto max-w-4xl px-4 py-6">
+      {/* Header */}
+      <header className="mb-8">
+        <PageTitle>Comment jouer</PageTitle>
+        <p className="mt-2 text-sm text-[#9ba4b0] leading-relaxed">
+          MathArena est un duel 1v1 de calcul mental. Réponds vite et juste pour infliger des dégâts,
+          enchaîne les bonnes réponses pour monter ton combo, débloque des sorts et ton ultime pour
+          prendre l'ascendant. Le premier à 0 PV perd.
+        </p>
+        <div className="mt-4">
+          <Btn size="sm" onClick={() => setView("classselect")}>
+            <Swords className="w-3.5 h-3.5" />
+            Lancer un duel
           </Btn>
         </div>
-      </Panel>
+      </header>
 
-      {/* Principe */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle="Un duel 1v1 au mental">
-          Le principe
-        </RuleSectionTitle>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PRINCIPLE_TILES.map((t) => {
-            const Icon = t.icon;
-            return (
-              <Panel key={t.label} className="p-4 text-center" hover>
-                <div
-                  className="mx-auto grid size-11 place-items-center rounded-lg border"
-                  style={{
-                    borderColor: `${t.color}80`,
-                    background: `${t.color}1a`,
-                    color: t.color,
-                    boxShadow: `0 0 16px ${t.color}33`,
-                  }}
-                >
-                  <Icon className="size-5" />
-                </div>
-                <div className="mt-2 font-mono text-lg font-bold text-white">{t.value}</div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-[#8b949e]">
-                  {t.label}
-                </div>
-                <div className="mt-0.5 text-[11px] text-[#8b949e]">{t.desc}</div>
-              </Panel>
-            );
-          })}
-        </div>
-        <p className="px-1 text-sm text-[#8b949e]">
-          À chaque question, le plus rapide inflige des dégâts. Le premier qui tombe à 0 PV perd.
-          Les sorts coûtent de l&apos;énergie, l&apos;ultime se débloque via les combos.
-        </p>
-      </SectionWrap>
-
-      {/* Dégâts selon la vitesse */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle="Plus tu réponds vite, plus tu frappes fort">
-          Dégâts selon la vitesse
-        </RuleSectionTitle>
-        <Panel className="overflow-hidden p-0">
-          <div className="grid grid-cols-1 sm:grid-cols-4">
-            {DAMAGE_TIERS.map((t, i) => (
-              <div
-                key={t.label}
-                className={cn(
-                  'relative flex items-center justify-between gap-3 p-4 sm:flex-col sm:items-start sm:gap-1',
-                  i !== 0 && 'border-t border-[#30363d] sm:border-l sm:border-t-0',
-                )}
-              >
-                <div className="flex flex-col">
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: t.color }}
-                  >
-                    {t.label}
-                  </span>
-                  <span className="font-mono text-xs text-[#8b949e]">{t.time}</span>
-                </div>
-                <div
-                  className="font-mono text-3xl font-black"
-                  style={{ color: t.color, textShadow: `0 0 14px ${t.color}55` }}
-                >
-                  {t.dmg}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex items-start gap-3 rounded-lg border border-[#ef4444]/30 bg-[rgba(239,68,68,0.06)] p-3">
-            <Flame className="mt-0.5 size-5 shrink-0 text-[#ef4444]" />
-            <div>
-              <div className="text-sm font-semibold text-white">Mauvaise réponse</div>
-              <div className="text-[11px] text-[#8b949e]">
-                Tu perds 10 PV (5 en Guerrier, 15 en Assassin).
-              </div>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-lg border border-[#f59e0b]/30 bg-[rgba(245,158,11,0.06)] p-3">
-            <Timer className="mt-0.5 size-5 shrink-0 text-[#f59e0b]" />
-            <div>
-              <div className="text-sm font-semibold text-white">Timeout</div>
-              <div className="text-[11px] text-[#8b949e]">
-                L&apos;adversaire récupère 5 PV si tu ne réponds pas à temps.
-              </div>
-            </div>
-          </div>
-        </div>
-      </SectionWrap>
-
-      {/* Combos */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle="Enchaîne les bonnes réponses pour amplifier tes dégâts">
-          Combos
-        </RuleSectionTitle>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          {COMBO_TIERS.map((c) => (
-            <Panel key={c.combo} className="p-4" hover>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10px] uppercase tracking-widest text-[#8b949e]">Combo</span>
-                <span className="font-mono text-sm font-bold" style={{ color: c.color }}>
-                  {c.combo}
-                </span>
-              </div>
-              <div
-                className="mt-1 font-display text-2xl font-extrabold"
-                style={{ color: c.color, textShadow: `0 0 14px ${c.color}55` }}
-              >
-                {c.mult}
-              </div>
-              <div className="mt-1 text-[11px] text-[#8b949e]">{c.desc}</div>
-            </Panel>
-          ))}
-        </div>
-        <p className="px-1 text-xs text-[#8b949e]">
-          Une mauvaise réponse ou un timeout réinitialise le combo à 0. Le seuil x2 varie selon la
-          classe (4 pour le Mage, 7 pour l&apos;Alchimiste).
-        </p>
-      </SectionWrap>
-
-      {/* Classes */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle={`${CLASS_LIST.length} styles de jeu uniques`}>
-          Classes
-        </RuleSectionTitle>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {CLASS_LIST.map((c) => (
-            <Panel key={c.id} className="relative overflow-hidden p-4" hover>
-              <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background: `linear-gradient(135deg, ${c.color}1a, transparent 60%)`,
-                }}
-              />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="clip-hex grid size-12 shrink-0 place-items-center text-2xl"
-                    style={{
-                      background: '#0d1117',
-                      border: `2px solid ${c.color}`,
-                      boxShadow: `0 0 18px ${c.color}44`,
-                    }}
-                  >
-                    {c.emoji}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-display text-lg font-bold" style={{ color: c.color }}>
-                      {c.name}
-                    </div>
-                    <div className="font-mono text-xs text-[#8b949e]">PV {c.hp}</div>
-                  </div>
-                  <div className="ml-auto">
-                    <span
-                      className="rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                      style={{ color: c.color, borderColor: `${c.color}80`, background: `${c.color}1a` }}
-                    >
-                      x2 @ {c.x2Threshold}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-2 text-[11px] italic text-[#8b949e]">« {c.tagline} »</p>
-                <div className="mt-3 space-y-1.5 text-xs">
-                  <div className="flex gap-2">
-                    <span
-                      className="w-16 shrink-0 font-semibold uppercase tracking-wider"
-                      style={{ color: c.color }}
-                    >
-                      Passif
-                    </span>
-                    <span className="text-[#c9d1d9]">
-                      <b className="text-white">{c.passive.name}</b> — {c.passive.description}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span
-                      className="w-16 shrink-0 font-semibold uppercase tracking-wider"
-                      style={{ color: c.color }}
-                    >
-                      Ultime
-                    </span>
-                    <span className="text-[#c9d1d9]">
-                      <b className="text-white">{c.ultimate.name}</b> — {c.ultimate.description}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-16 shrink-0 font-semibold uppercase tracking-wider text-[#ef4444]">
-                      Faiblesse
-                    </span>
-                    <span className="text-[#8b949e]">{c.weakness}</span>
-                  </div>
-                </div>
-              </div>
-            </Panel>
-          ))}
-        </div>
-      </SectionWrap>
-
-      {/* Sorts */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle={`${SPELL_LIST.length} sorts — débloqués à combo 8`}>
-          Sorts
-        </RuleSectionTitle>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {SPELL_LIST.map((s) => (
-            <Panel key={s.id} className="p-4" hover>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{s.emoji}</span>
-                <div className="min-w-0">
-                  <div className="truncate font-display text-sm font-bold text-white">{s.name}</div>
-                  <div className="mt-0.5 flex items-center gap-1">
-                    <Zap className="size-3 text-[#f59e0b]" />
-                    <span className="font-mono text-[11px] text-[#f59e0b]">{s.cost} énergie</span>
-                  </div>
-                </div>
-              </div>
-              <p className="mt-2 text-[11px] text-[#8b949e]">{s.description}</p>
-              <span
-                className={cn(
-                  'mt-2 inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                  s.target === 'self'
-                    ? 'border-[#22c55e]/50 bg-[rgba(34,197,94,0.1)] text-[#22c55e]'
-                    : 'border-[#ef4444]/50 bg-[rgba(239,68,68,0.1)] text-[#ef4444]',
-                )}
-              >
-                {s.target === 'self' ? 'Sur soi' : "Sur l'adversaire"}
-              </span>
-            </Panel>
-          ))}
-        </div>
-      </SectionWrap>
-
-      {/* Modes */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle="4 façons de s'affronter">
-          Modes de jeu
-        </RuleSectionTitle>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {MODES.map((m) => (
-            <Panel key={m.id} className="relative overflow-hidden p-4" hover>
-              <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background: `linear-gradient(135deg, ${m.color}1a, transparent 60%)`,
-                }}
-              />
-              <div className="relative z-10 flex items-start gap-3">
-                <div
-                  className="grid size-12 shrink-0 place-items-center rounded-lg border text-2xl"
-                  style={{
-                    borderColor: `${m.color}80`,
-                    background: '#0d1117',
-                    boxShadow: `0 0 16px ${m.color}33`,
-                  }}
-                >
-                  {m.emoji}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-display font-bold" style={{ color: m.color }}>
-                      {m.name}
-                    </span>
-                    {m.elo ? (
-                      <span className="rounded-md border border-[#2563eb]/50 bg-[rgba(37,99,235,0.1)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2563eb]">
-                        Elo
-                      </span>
-                    ) : (
-                      <span className="rounded-md border border-[#30363d] bg-[#21262d] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#8b949e]">
-                        0 Elo
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] text-[#8b949e]">{m.desc}</p>
-                </div>
-              </div>
-            </Panel>
-          ))}
-        </div>
-      </SectionWrap>
-
-      {/* Divisions */}
-      <SectionWrap>
-        <RuleSectionTitle subtitle="Échelle de progression par Elo">
-          Divisions
-        </RuleSectionTitle>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {DIVISIONS.map((d) => (
-            <div
-              key={d.name}
-              className="flex items-center gap-2.5 rounded-lg border bg-[#0d1117]/60 p-3"
-              style={{
-                borderColor: `${d.color}66`,
-                boxShadow: `0 0 14px ${d.color}22`,
-              }}
-            >
-              <div
-                className="clip-hex grid size-9 shrink-0 place-items-center text-lg"
-                style={{
-                  background: '#0d1117',
-                  border: `2px solid ${d.color}`,
-                }}
-              >
-                {d.emoji}
-              </div>
-              <div className="min-w-0">
-                <div
-                  className="truncate text-sm font-bold"
-                  style={{ color: d.color }}
-                >
-                  {d.name}
-                </div>
-                <div className="font-mono text-[10px] text-[#8b949e]">{d.min}+ Elo</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className="px-1 text-xs text-[#8b949e]">
-          L&apos;Elo évolue uniquement en modes <b className="text-white">Ranked</b> et{' '}
-          <b className="text-white">Blitz</b>. Gagne pour grimper, perds pour descendre.
-        </p>
-      </SectionWrap>
-
-      {/* CTA final */}
-      <div className="flex justify-center pt-2">
-        <Btn size="lg" onClick={() => setView('classselect')} className="min-h-11">
-          <Target className="size-4" /> Prêt à jouer
-        </Btn>
+      {/* Sections */}
+      <div className="space-y-12">
+        <PrincipeSection />
+        <DamageSection />
+        <ComboSection />
+        <ClassesSection />
+        <SpellsSection />
+        <ModesSection />
+        <DivisionsSection />
       </div>
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Section wrapper helper
+   ---------------------------------------------------------------- */
+
+function Section({
+  id,
+  label,
+  title,
+  intro,
+  children,
+}: {
+  id: string;
+  label: string;
+  title: string;
+  intro?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-20">
+      <div className="mb-4">
+        <SectionLabel>{label}</SectionLabel>
+        <h2 className="mt-1 text-lg font-semibold text-[#e6edf3] tracking-tight">{title}</h2>
+        {intro && <p className="mt-1 text-sm text-[#9ba4b0] leading-relaxed">{intro}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Principe — 4 tuiles sobres
+   ---------------------------------------------------------------- */
+
+function PrincipeSection() {
+  return (
+    <Section
+      id="principe"
+      label="Principe"
+      title="Les ressources du combat"
+      intro="Chaque combattant démarre avec des PV, de l'énergie, et peut gagner un bouclier. Les ultimes se déclenchent via le combo."
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <StatTile
+          label="Points de vie"
+          value={
+            <span className="flex items-center gap-2">
+              <Heart className="w-4 h-4 text-[#f85149]" />
+              <span className="font-mono">100</span>
+            </span>
+          }
+          sub="À 0 = défaite"
+        />
+        <StatTile
+          label="Énergie"
+          value={
+            <span className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#3b82f6]" />
+              <span className="font-mono">0 → 100</span>
+            </span>
+          }
+          sub="Pour les sorts"
+        />
+        <StatTile
+          label="Bouclier"
+          value={
+            <span className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[#9ba4b0]" />
+              <span className="font-mono">+10</span>
+            </span>
+          }
+          sub="Absorbe les dégâts"
+        />
+        <StatTile
+          label="Ultime"
+          value={
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#3b82f6]" />
+              <span className="font-mono">combo 10</span>
+            </span>
+          }
+          sub="Spécifique à la classe"
+        />
+      </div>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Dégâts selon la vitesse — DataTable
+   ---------------------------------------------------------------- */
+
+function DamageSection() {
+  const rows = [
+    { time: "< 2 s", dmg: <span className="font-mono text-[#f85149]">20</span>, kind: "Coup critique" },
+    { time: "2 – 4 s", dmg: <span className="font-mono text-[#e6edf3]">15</span>, kind: "Élevé" },
+    { time: "4 – 6 s", dmg: <span className="font-mono text-[#e6edf3]">10</span>, kind: "Standard" },
+    { time: "6 – 10 s", dmg: <span className="font-mono text-[#9ba4b0]">5</span>, kind: "Faible" },
+  ];
+
+  return (
+    <Section
+      id="degats"
+      label="Combat"
+      title="Dégâts selon la vitesse"
+      intro="Plus tu réponds vite, plus tu frappes fort. Le timer de chaque question est de 10 secondes."
+    >
+      <Panel className="overflow-hidden">
+        <DataTable
+          columns={[
+            { key: "time", header: "Temps" },
+            { key: "dmg", header: "Dégâts" },
+            { key: "kind", header: "Type" },
+          ]}
+          rows={rows}
+          rowKey={(_, i) => String(i)}
+        />
+      </Panel>
+
+      <div className="mt-4 space-y-2 text-sm">
+        <div className="flex items-start gap-2 text-[#9ba4b0]">
+          <AlertTriangle className="w-4 h-4 text-[#d29922] shrink-0 mt-0.5" />
+          <span>
+            <span className="text-[#e6edf3] font-medium">Mauvaise réponse :</span> tu subis des dégâts
+            (variable selon ta classe, souvent 10). Certains passifs réduisent ou amplifient ce montant.
+          </span>
+        </div>
+        <div className="flex items-start gap-2 text-[#9ba4b0]">
+          <AlertTriangle className="w-4 h-4 text-[#d29922] shrink-0 mt-0.5" />
+          <span>
+            <span className="text-[#e6edf3] font-medium">Timeout (10 s) :</span> l'adversaire régénère
+            5 PV et ton combo retombe à 0.
+          </span>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Combos — 4 lignes simples
+   ---------------------------------------------------------------- */
+
+function ComboSection() {
+  const combos = [
+    { threshold: "3 bonnes", mult: "×1,5", effect: "Bonus de dégâts" },
+    { threshold: "5 bonnes", mult: "×2", effect: "Combo standard (×2 sur la plupart des classes)" },
+    { threshold: "8 bonnes", mult: "×3", effect: "Les sorts deviennent disponibles" },
+    { threshold: "10 bonnes", mult: "Ultime", effect: "Ultime de classe débloqué" },
+  ];
+  return (
+    <Section
+      id="combos"
+      label="Combat"
+      title="Enchaînement de combos"
+      intro="Une bonne réponse incrémente ton combo. Une erreur ou un timeout le remet à 0. Les multiplicateurs s'appliquent aux dégâts infligés."
+    >
+      <Panel className="overflow-hidden">
+        <DataTable
+          columns={[
+            { key: "threshold", header: "Combo" },
+            { key: "mult", header: "Multiplicateur" },
+            { key: "effect", header: "Effet" },
+          ]}
+          rows={combos.map((c) => ({
+            threshold: <span className="text-[#e6edf3]">{c.threshold}</span>,
+            mult: <span className="font-mono text-[#3b82f6]">{c.mult}</span>,
+            effect: <span className="text-[#9ba4b0]">{c.effect}</span>,
+          }))}
+          rowKey={(_, i) => String(i)}
+        />
+      </Panel>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Classes — table compacte
+   ---------------------------------------------------------------- */
+
+function ClassesSection() {
+  return (
+    <Section
+      id="classes"
+      label="Classes"
+      title="Les 5 classes"
+      intro="Chaque classe a un passif, un ultime et une faiblesse. Le seuil de combo ×2 varie selon la classe."
+    >
+      <Panel className="overflow-hidden">
+        <DataTable
+          columns={[
+            { key: "name", header: "Classe", className: "min-w-[140px]" },
+            { key: "hp", header: "PV" },
+            { key: "x2", header: "Combo ×2" },
+            { key: "passive", header: "Passif" },
+            { key: "ultimate", header: "Ultime" },
+            { key: "weakness", header: "Faiblesse" },
+          ]}
+          rows={CLASS_LIST.map((c) => ({
+            name: (
+              <span className="text-[#e6edf3]">
+                {c.emoji} {c.name}
+              </span>
+            ),
+            hp: <span className="font-mono text-[#9ba4b0]">{c.hp}</span>,
+            x2: <span className="font-mono text-[#9ba4b0]">x{c.x2Threshold}</span>,
+            passive: (
+              <span className="text-[#9ba4b0]">
+                <span className="text-[#e6edf3]">{c.passive.name}.</span> {c.passive.description}
+              </span>
+            ),
+            ultimate: (
+              <span className="text-[#9ba4b0]">
+                <span className="text-[#e6edf3]">{c.ultimate.name}.</span> {c.ultimate.description}
+              </span>
+            ),
+            weakness: <span className="text-[#9ba4b0]">{c.weakness}</span>,
+          }))}
+          rowKey={(_, i) => String(i)}
+        />
+      </Panel>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Sorts — table compacte
+   ---------------------------------------------------------------- */
+
+function SpellsSection() {
+  return (
+    <Section
+      id="sorts"
+      label="Sorts"
+      title="Les sorts"
+      intro="Les sorts coûtent de l'énergie (gagnée via les bonnes réponses). Ils se débloquent à partir d'un combo de 8."
+    >
+      <Panel className="overflow-hidden">
+        <DataTable
+          columns={[
+            { key: "name", header: "Sort", className: "min-w-[120px]" },
+            { key: "cost", header: "Coût" },
+            { key: "target", header: "Cible" },
+            { key: "description", header: "Description" },
+          ]}
+          rows={SPELL_LIST.map((s) => ({
+            name: (
+              <span className="text-[#e6edf3]">
+                {s.emoji} {s.name}
+              </span>
+            ),
+            cost: <span className="font-mono text-[#3b82f6]">{s.cost}</span>,
+            target: (
+              <span
+                className={cn(
+                  "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide border",
+                  s.target === "self"
+                    ? "text-[#2ea043] border-[#2ea043]/40 bg-[#2ea043]/10"
+                    : "text-[#f85149] border-[#f85149]/40 bg-[#f85149]/10",
+                )}
+              >
+                {s.target === "self" ? "Soi" : "Adv."}
+              </span>
+            ),
+            description: <span className="text-[#9ba4b0]">{s.description}</span>,
+          }))}
+          rowKey={(_, i) => String(i)}
+        />
+      </Panel>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Modes — 4 lignes
+   ---------------------------------------------------------------- */
+
+function ModesSection() {
+  const modes = [
+    {
+      name: "Entraînement",
+      key: "PRACTICE",
+      desc: "Mode détendu. Aucun impact sur l'Elo ni l'XP. Idéal pour tester une classe.",
+    },
+    {
+      name: "Rapide",
+      key: "QUICK",
+      desc: "Duel standard avec gains d'XP. Aucun impact sur l'Elo.",
+    },
+    {
+      name: "Blitz",
+      key: "BLITZ",
+      desc: "Questions plus courtes, rythme intensif. Gains d'XP accélérés.",
+    },
+    {
+      name: "Classé",
+      key: "RANKED",
+      desc: "Duel officiel avec mise à jour de l'Elo (gain ou perte selon le résultat).",
+    },
+  ];
+  return (
+    <Section
+      id="modes"
+      label="Modes"
+      title="Modes de jeu"
+      intro="Quatre modes pour varier l'intensité. Seul le mode Classé affecte ton Elo."
+    >
+      <Panel className="overflow-hidden">
+        <DataTable
+          columns={[
+            { key: "name", header: "Mode", className: "min-w-[140px]" },
+            { key: "key", header: "Identifiant" },
+            { key: "desc", header: "Description" },
+          ]}
+          rows={modes.map((m) => ({
+            name: <span className="text-[#e6edf3]">{m.name}</span>,
+            key: <span className="font-mono text-[#6e7681]">{m.key}</span>,
+            desc: <span className="text-[#9ba4b0]">{m.desc}</span>,
+          }))}
+          rowKey={(_, i) => String(i)}
+        />
+      </Panel>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------
+   Divisions — table avec dot couleur
+   ---------------------------------------------------------------- */
+
+function DivisionsSection() {
+  return (
+    <Section
+      id="divisions"
+      label="Progression"
+      title="Divisions"
+      intro="Ton Elo détermine ta division. Les divisions sont purement cosmétiques mais reflètent ton niveau global."
+    >
+      <Panel className="overflow-hidden">
+        <DataTable
+          columns={[
+            { key: "tier", header: "Tier" },
+            { key: "name", header: "Division", className: "min-w-[140px]" },
+            { key: "dot", header: "Couleur" },
+            { key: "min", header: "Elo minimum" },
+          ]}
+          rows={DIVISIONS.map((d) => ({
+            tier: <span className="font-mono text-[#6e7681]">{d.tier}</span>,
+            name: (
+              <span className="text-[#e6edf3] flex items-center gap-2">
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ background: d.color }}
+                  aria-hidden
+                />
+                {d.name}
+              </span>
+            ),
+            dot: (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className="inline-block w-4 h-4 rounded border"
+                  style={{ background: `${d.color}22`, borderColor: `${d.color}55` }}
+                />
+                <span className="font-mono text-xs text-[#9ba4b0]">{d.color}</span>
+              </span>
+            ),
+            min: <span className="font-mono text-[#e6edf3]">{d.min}</span>,
+          }))}
+          rowKey={(_, i) => String(i)}
+        />
+      </Panel>
+    </Section>
   );
 }
