@@ -387,3 +387,19 @@ Work Log:
 
 Stage Summary:
 - Vérifié Agent Browser + VLM : layout desktop full-viewport (top bar, panneaux L/R structurés avec score/7 + barre bleue + combo + vitesse + précision + indicateur calcul adverse, timer central, question héros, input auto-validation sans bouton, journal horodaté, stats live, PAS de vide). Mobile : pavé numérique + strip horizontal, pas d'overflow. Duel se termine et se sauvegarde (Elo compétitif mis à jour). Lint 0 erreurs. DB reset. Push sur main.
+
+---
+Task ID: warm-focus-duel (1-7)
+Agent: main (Z.ai Code)
+Task: Refonte duel compétitif — palette chaude, mode focus, adversaire caché, sons, fin de match.
+
+Work Log:
+- globals.css : palette chaude (#14110F brun foncé, #FF8C42 orange, #F5EFE6 crème, #6BAA75 vert, #D9534F rouge brique, #E5A847 ambre, #F5DEB3 beige doré). Supprimé tout bleu froid. Animations : fadeIn, slideUp, shake, flash green/red/gold, glow-pulse, timer-pulse, scale-in, question-out, bounce-dots.
+- divisions.ts : couleurs adaptées palette chaude.
+- sound.ts : SoundManager Web Audio API (muet par défaut). Sons : correct (ding cristallin), wrong (buzz grave), critical (ding+echo), tick (timer bas), combo (arpège ascendant), swoosh (début), pop (point), tac (adversaire), bell (fin).
+- useCompetitiveDuel.ts : refonte complète. Expose isGameOver, winner, matchDurationMs, bestCombo. finalize() met à jour state.phase=gameover + winner (fix bug DÉFAITE affichée pour victoire). Sons intégrés (ding/buzz/tick/combo/bell). Combo tracking avec bestCombo. Auto-clear wrong 500ms. Tick sound < 3s.
+- CompetitiveDuelScreen refonte : FULL FOCUS MODE (pas de top bar, icônes discrètes ✕/🔇/📜 opacity 0.4). Timer 56px centré (orange > ambre > rouge+pulse) + barre 4px. Métadonnées discrètes (uppercase muted, pas badges). Question hero 80px mono dans box glow chaud. Input 56px mono + bouton Valider discret. Panneaux joueurs en bas (gauche=toi avec rang+elo+score/7+barre orange, droite=adversaire CACHÉ avec "???"+"Adversaire"+"Caché" + toggle 👁 Voir). Stats live CACHÉES pendant le match. Journal = modal flottant (touche J). Fin de match : overlay VICTOIRE(orange)/DÉFAITE(crème) + modale stats (score, Elo±, vitesse, précision, combo, durée) + boutons Rejouer/Analyse/Accueil. Mobile : pavé numérique 3×4 orange. Échap=quit, M=mute, J=journal.
+- Bug fix : finalize() ne mettait pas state.phase=gameover/winner → winner toujours null → DÉFAITE affichée même en victoire. Corrigé.
+
+Stage Summary:
+- Vérifié Agent Browser + VLM : palette chaude confirmée, mode focus (pas de top bar), adversaire caché (???/Adversaire/Caché), timer+question héros, bouton Valider discret, panneaux avec barres orange, fin de match VICTOIRE 7-4 Elo+16 avec modale stats complète (score/vitesse/précision/combo/durée). Mobile : pavé numérique, pas d'overflow. Lint 0 erreurs. DB reset. Push sur main.

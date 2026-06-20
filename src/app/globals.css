@@ -4,9 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   MathArena — Design System v2
-   Chess.com × Lichess × Faceit × Linear × GitHub Dark
-   Sober. Professional. Dense. Dark-only. Minimal color.
+   MathArena — Design System v3 (Warm Dark)
+   Chess.com meets a warm cozy library, with esports tension.
+   Orange / beige / cream on warm dark brown.
    ============================================================ */
 
 @theme inline {
@@ -41,6 +41,7 @@
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
+  --color-highlight: var(--highlight);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -54,11 +55,11 @@
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);
 
-  --color-chart-1: #3b82f6;
-  --color-chart-2: #2ea043;
-  --color-chart-3: #d29922;
-  --color-chart-4: #f85149;
-  --color-chart-5: #9ba4b0;
+  --color-chart-1: #ff8c42;
+  --color-chart-2: #6baa75;
+  --color-chart-3: #e5a847;
+  --color-chart-4: #d9534f;
+  --color-chart-5: #b8ae9e;
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -67,49 +68,49 @@
 }
 
 :root {
-  /* backgrounds — GitHub dark / Linear */
-  --background: #0e1116;
-  --foreground: #e6edf3;
+  /* backgrounds — warm dark brown */
+  --background: #14110f;
+  --foreground: #f5efe6;
 
-  --card: #161b22;
-  --card-foreground: #e6edf3;
-  --popover: #161b22;
-  --popover-foreground: #e6edf3;
+  --card: #1c1815;
+  --card-foreground: #f5efe6;
+  --popover: #1c1815;
+  --popover-foreground: #f5efe6;
 
-  --primary: #3b82f6;      /* calm blue, only accent */
-  --primary-foreground: #ffffff;
+  --primary: #ff8c42;       /* warm orange */
+  --primary-foreground: #14110f;
 
-  --secondary: #1c2128;
-  --secondary-foreground: #e6edf3;
+  --secondary: #252019;
+  --secondary-foreground: #f5efe6;
 
-  --muted: #1c2128;
-  --muted-foreground: #9ba4b0;
+  --muted: #252019;
+  --muted-foreground: #b8ae9e;
 
-  --accent: #22272e;
-  --accent-foreground: #e6edf3;
+  --accent: #2e2820;
+  --accent-foreground: #f5efe6;
 
-  --destructive: #f85149;
-  --destructive-foreground: #ffffff;
+  --destructive: #d9534f;   /* brick red */
+  --destructive-foreground: #f5efe6;
 
-  --border: #2d333b;
-  --input: #1c2128;
-  --ring: #3b82f6;
+  --border: #4a4133;
+  --input: #252019;
+  --ring: #ff8c42;
 
-  /* surfaces */
-  --surface-1: #161b22;
-  --surface-2: #1c2128;
-  --surface-hover: #22272e;
+  --surface-1: #1c1815;
+  --surface-2: #252019;
+  --surface-hover: #2e2820;
 
-  --border-subtle: #232a33;
-  --border-strong: #444c56;
+  --border-subtle: #3a3328;
+  --border-strong: #5c5142;
 
-  --text-primary: #e6edf3;
-  --text-secondary: #9ba4b0;
-  --text-muted: #6e7681;
+  --text-primary: #f5efe6;
+  --text-secondary: #b8ae9e;
+  --text-muted: #7a7164;
 
-  --success: #2ea043;
-  --danger: #f85149;
-  --warning: #d29922;
+  --success: #6baa75;       /* soft green */
+  --danger: #d9534f;        /* brick red */
+  --warning: #e5a847;       /* amber */
+  --highlight: #f5deb3;     /* golden beige */
 
   --radius: 8px;
 }
@@ -129,50 +130,101 @@
     text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: rgba(59, 130, 246, 0.3);
+    background: rgba(255, 140, 66, 0.3);
     color: #fff;
   }
 }
 
 /* ============================================================
-   Utilities — MathArena (sober, minimal)
+   Utilities — warm, subtle
    ============================================================ */
 @layer utilities {
-  .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #2d333b;
+  .scrollbar-warm::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-warm::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-warm::-webkit-scrollbar-thumb {
+    background: #4a4133;
     border-radius: 999px;
   }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #444c56; }
+  .scrollbar-warm::-webkit-scrollbar-thumb:hover { background: #5c5142; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* subtle correct/incorrect input feedback (no glow, no flash background) */
-  .input-correct { border-color: #2ea043 !important; }
-  .input-incorrect { border-color: #f85149 !important; }
+  .warm-glow { box-shadow: 0 0 40px rgba(255, 140, 66, 0.08); }
+  .warm-glow-strong { box-shadow: 0 0 60px rgba(255, 140, 66, 0.18); }
+
+  .input-correct { border-color: #6baa75 !important; }
+  .input-incorrect { border-color: #d9534f !important; }
+  .input-critical { border-color: #f5deb3 !important; }
 }
 
 /* ============================================================
-   Animations — minimal, subtle
+   Animations — rich but short
    ============================================================ */
 @layer utilities {
+  @keyframes ma-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: ma-fade-in 0.3s cubic-bezier(0, 0, 0.2, 1); }
+
+  @keyframes ma-slide-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up { animation: ma-slide-up 0.4s cubic-bezier(0, 0, 0.2, 1); }
+
   @keyframes ma-shake {
     0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-4px); }
-    75% { transform: translateX(4px); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
   }
   .animate-shake { animation: ma-shake 0.3s ease-in-out; }
 
-  @keyframes ma-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  @keyframes ma-flash-green {
+    0% { background-color: rgba(107, 170, 117, 0.25); }
+    100% { background-color: transparent; }
   }
-  .animate-fade-in { animation: ma-fade-in 0.2s ease-out; }
+  .animate-flash-green { animation: ma-flash-green 0.2s ease-out; }
 
-  @keyframes ma-timer-urgent {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
+  @keyframes ma-flash-red {
+    0% { background-color: rgba(217, 83, 79, 0.25); }
+    100% { background-color: transparent; }
   }
-  .animate-timer-urgent { animation: ma-timer-urgent 0.8s ease-in-out infinite; }
+  .animate-flash-red { animation: ma-flash-red 0.3s ease-out; }
+
+  @keyframes ma-flash-gold {
+    0% { background-color: rgba(245, 222, 179, 0.3); }
+    100% { background-color: transparent; }
+  }
+  .animate-flash-gold { animation: ma-flash-gold 0.3s ease-out; }
+
+  @keyframes ma-glow-pulse {
+    0%, 100% { box-shadow: 0 0 40px rgba(255, 140, 66, 0.08); }
+    50% { box-shadow: 0 0 60px rgba(255, 140, 66, 0.2); }
+  }
+  .animate-glow-pulse { animation: ma-glow-pulse 0.8s ease-in-out; }
+
+  @keyframes ma-timer-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .animate-timer-pulse { animation: ma-timer-pulse 0.8s ease-in-out infinite; }
+
+  @keyframes ma-scale-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-scale-in { animation: ma-scale-in 0.6s cubic-bezier(0, 0, 0.2, 1); }
+
+  @keyframes ma-question-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-12px); }
+  }
+  .animate-question-out { animation: ma-question-out 0.3s cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+  @keyframes ma-bounce-dots {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+  .animate-dot { animation: ma-bounce-dots 1.4s ease-in-out infinite both; }
 }
