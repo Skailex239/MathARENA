@@ -513,3 +513,61 @@ Work Log:
 
 Stage Summary:
 - Vérifié Agent Browser + VLM : home light cream 2 colonnes + outline buttons + ornaments, duel compétitif light (cream bg, timer+question héros, adversaire caché, panneaux orange), entraînement light peach solo (MM:SS), profil + classement light warm. Lint 0 erreurs. DB reset. Push sur main.
+
+---
+
+Task ID: 8
+Agent: ui-3elos-profile-leaderboard (general-purpose)
+Task: Adapt Profile (3 Elos + stats par mode) + Leaderboard (filtre mode).
+
+Work Log:
+- Lecture du worklog (contexte palette light warm + 3 modes compétitifs posés en task 7) + lecture de `src/lib/api.ts` (Profile/MatchRecord/LeaderboardEntry à jour avec eloClassique/eloRapide/eloBlitz), `src/lib/store.ts` (view/setView), `src/components/matharena/ui.tsx` (primitives Btn/Panel/PageTitle/SectionLabel/StatTile/RankBadge/OrnamentDivider/Tabs/DataTable), `src/app/api/leaderboard/route.ts` (filtre mode=classique|rapide|blitz confirmé), et l'existant ProfileScreen/LeaderboardScreen (qui référençaient encore eloCompetitive/wins/losses supprimés → cassés).
+- Réécriture complète de `src/components/matharena/ProfileScreen.tsx` :
+  - Sidebar desktop 220px (sticky) : avatar 64px (initials, peach tint), pseudo Helvetica 22px font-semibold, title (si présent), barre XP orange #E8823D, label niveau.
+  - Nav latérale : Vue générale / Statistiques / Historique (contenu réel) + Succès / Amis / Paramètres (ComingSoon). Active = bordure gauche orange 2px + bg #EFE8DB. Mobile → barre horizontale scrollable.
+  - Overview : 3 StatTiles (Elo Classique/Rapide/Blitz avec winrate+W-D en sub) → OrnamentDivider → LineChart Recharts (ligne orange, grid #EBE2D2, axes #9C8E7A, hauteur 220px, data = matchs compétitifs triés date asc, X=n°match, Y=eloAfter, empty state avec CTA) → OrnamentDivider → DataTable "Parties récentes" 10 lignes (Date/Adversaire/Résultat badge WIN#7A9B6E/LOSE#B5524A/Elo±/Mode label FR) pad à 5 min → OrnamentDivider → barres catégories sage green #7A9B6E (Addition/Soustraction/Multiplication/Division/Mixte/Puissances/Pourcentages/Logique, badge "estimation").
+  - StatsTab : 3 cartes ModeStatCard (Elo + RankBadge + W-D + barre winrate orange) + section Entraînement (winsArena/lossesArena/arenaWinrate, badge "sans Elo") + synthèse 4 tiles.
+  - HistoryTab : DataTable complète (Date/Adversaire/Résultat/Elo±/Score/Mode) pad à 5 min.
+  - EmptyState global si 0 match → "Aucune partie jouée" + Btn outline orange → setView('classselect').
+  - Fetch au mount (getProfile + getMatches(50) en parallèle), loading=ProfileSkeleton, error=Panel sobre avec bouton Réessayer.
+- Réécriture complète de `src/components/matharena/LeaderboardScreen.tsx` :
+  - PageTitle "Classement" + sous-titre "Les meilleurs calculateurs de MathArena" + Btn "Nouveau duel" (outline orange) → setView('classselect').
+  - OrnamentDivider + Tabs mode (Classique/Rapide/Blitz, accent orange) + label "Elo <mode>".
+  - useEffect sur [mode, reload] → refetch api.getLeaderboard(mode) au changement de mode.
+  - DataTable full-width dense : # (rang coloré top3) / Joueur (nom + badge "Toi" orange si isMe + "Bot" muted si isBot) / Niveau / Elo (mono, du mode sélectionné via e.elo) / V-D (vert/rouge mono) / Winrate% (couleur selon seuil 55/45, "—" si 0 partie).
+  - rowClassName : top 3 → bg rgba(240,178,122,0.08) peach tint. highlight isMe → bordure gauche orange 2px + fond léger via DataTable.highlight.
+  - Pad à 5 lignes min. Pagination texte "← Précédent | Page 1/1 | Suivant →" muted disabled.
+  - Note dynamique par mode (règles Classique/Rapide/Blitz).
+  - loading=LeaderboardSkeleton, error=Panel sobre avec bouton Réessayer.
+- Contraintes respectées : 'use client', TypeScript strict (zero `any`), cn() partout, palette light warm uniquement (aucun bleu/néon), FR uniquement, primitives ui.tsx utilisées (Btn/Panel/PageTitle/SectionLabel/StatTile/RankBadge/OrnamentDivider/Tabs/DataTable), pas de navbar/footer.
+- Vérification : `bun run lint` → 0 erreur, 0 warning. `bunx tsc --noEmit` → 0 erreur sur ProfileScreen.tsx et LeaderboardScreen.tsx. Turbopack recompile les deux fichiers sans erreur (logs "✓ Compiled in 124ms" etc.).
+- Note runtime : les endpoints API (/api/profile, /api/leaderboard?mode=..., /api/matches) retournent actuellement 500 — cause racine confirmée via le body HTML de la réponse : `./src/hooks/useCompetitiveDuel.ts:5:1 — Export TARGET_SCORE doesn't exist in target module` (un autre agent a refactorisé competitive-engine.ts en 3 modes mais n'a pas mis à jour useCompetitiveDuel.ts qui importe encore TARGET_SCORE supprimé). Ce bug casse la chaîne page.tsx → CompetitiveDuelScreen → useCompetitiveDuel et fait cascader les 500 sur toutes les routes (API comprises). Hors périmètre Task 8 — quand ce hook sera réparé, mes écrans fonctionneront immédiatement (les API routes sont validées côté backend, cf. worklog task 2-a).
+
+Stage Summary:
+- 2 fichiers réécrits : `src/components/matharena/ProfileScreen.tsx` (≈580 lignes) et `src/components/matharena/LeaderboardScreen.tsx` (≈290 lignes).
+- État lint : OK (0 erreur, 0 warning). État compilation TypeScript : OK sur mes 2 fichiers. État runtime : bloqué par bug pré-existant useCompetitiveDuel.ts (TARGET_SCORE manquant) — hors périmètre.
+- Décisions : (1) filtrage matchs compétitifs via `COMPETITIVE_MODES = {RANKED, QUICK, BLITZ}` (PRACTICE = entraînement, exclu du graphe Elo) ; (2) sidebar strict selon spec (avatar+pseudo+XP+niveau, pas de RankBadge pour éviter doublon avec les 3 Elos du main) ; (3) StatsTab enrichi d'une section Entraînement (winsArena/lossesArena) puisque le profile expose ces compteurs et qu'ils n'ont pas d'Elo ; (4) LeaderboardTable utilise e.elo (déjà filtré par mode côté API) + colonne Winrate% (remplace l'ancien "Trend" arrow) conforme à la spec ; (5) EmptyState global si 0 match (avant tout rendu de tab) pour éviter d'afficher un Overview vide.
+- À suivre : réparer useCompetitiveDuel.ts (TARGET_SCORE → modeConfig) pour débloquer le runtime et permettre la QA visuelle de ces 2 écrans.
+
+---
+Task ID: 3-modes-elo-per-mode (1-9)
+Agent: main (Z.ai Code)
+Task: Refonte règles — 3 modes (Classique/Rapide/Blitz) avec Elo séparé par mode, lockout, pas de combos, Marathon.
+
+Work Log:
+- schema.prisma : 3 Elo par mode (eloClassique, eloRapide, eloBlitz + wins/losses par mode). Supprimé playerClass/opponentClass/maxCombo (plus de RPG). Match utilise playerScore/opponentScore.
+- competitive-engine.ts : modeConfig(mode) — Classique (target 10, 8s), Rapide (target 5, 5s), Blitz (target 0 = time-based, 2min). Difficulté moyen fixe (forcedDifficulty). Mauvaise réponse = lockout (playerLocked). Timeout = invalidée pour les deux. Pas de combos. endBlitz() pour fin time-based.
+- math.ts : generateQuestion supporte forcedDifficulty.
+- progression.ts : computeEloChange route par mode (modeEloFields). toProfile retourne 3 elos + winrates par mode.
+- API : profile (3 elos + re-seed bots avec 3 elos), matches (Elo routé par mode), leaderboard (?mode=classique|rapide|blitz).
+- store.ts : MatchResultPayload simplifié (playerScore/opponentScore, plus de playerClass/maxCombo). trainingExercise ajoute "marathon".
+- api.ts : types étendus (Profile 3 elos, SaveMatchBody playerScore).
+- useCompetitiveDuel.ts : modeConfig, Blitz match countdown (matchTimeLeftMs), lockout, pas de combo. finalize() set winner.
+- CompetitiveDuelScreen : score display adapté (Blitz = pas de /target, barre relative), Blitz countdown affiché, pas de combo dans stats de fin, mode labels (Classique/Rapide/Blitz).
+- HomeScreen : 3 modes tabs avec descriptions format par mode. Marathon ajouté aux exercices.
+- ClassSelectScreen : 3 modes avec descriptions. Marathon ajouté.
+- TrainingDuelScreen : Marathon (50 questions, pas de timer, compteur X/50). saveMatch corrigé (playerScore).
+- Subagent 8 : ProfileScreen (3 elos stat cards + charts) + LeaderboardScreen (filtre mode).
+
+Stage Summary:
+- Vérifié Agent Browser : 3 modes sur home (Classique/Rapide/Blitz), duel Classique (target 0/10, 8s, moyen fixe), duel Blitz (countdown 1m 57s, pas de target), leaderboard filtre mode, profile 3 elos API. Marathon ajouté. Lint 0 erreurs. DB reset. Push sur main.

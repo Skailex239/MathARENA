@@ -314,8 +314,9 @@ export function generateQuestion(opts: {
   questionIndex: number;
   confused?: boolean;
   category?: Category;
+  forcedDifficulty?: Difficulty;
 }): Question {
-  const difficulty = pickDifficulty(opts.mode, opts.questionIndex, !!opts.confused);
+  const difficulty = opts.forcedDifficulty ?? pickDifficulty(opts.mode, opts.questionIndex, !!opts.confused);
   const category = opts.category ?? pick(ALL_CATS);
   try {
     const gen = GEN_BY_CAT[category](difficulty);

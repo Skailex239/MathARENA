@@ -14,13 +14,9 @@ export type View =
 export interface MatchResultPayload {
   universe: Universe;
   result: "WIN" | "LOSE";
-  playerClass: ClassId | null;
-  opponentClass: ClassId | null;
   opponentName: string;
-  /** arène: PV restants ; compétitif: score du joueur */
-  playerHP: number;
-  opponentHP: number;
-  maxCombo: number;
+  playerScore: number;
+  opponentScore: number;
   avgTimeMs: number;
   accuracy: number;
   mode: GameMode;
@@ -42,7 +38,7 @@ interface AppState {
   opponentClass: ClassId;
   opponentName: string;
   /** exercise d'entraînement sélectionné */
-  trainingExercise: "vsia" | "sprint" | "category" | "daily";
+  trainingExercise: "vsia" | "sprint" | "category" | "daily" | "marathon";
   lastResult: MatchResultPayload | null;
   setView: (v: View) => void;
   setUniverse: (u: Universe) => void;

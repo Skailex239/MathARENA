@@ -1,5 +1,6 @@
 // MathArena — Prisma schema (SQLite)
-// Deux univers : Compétitif (pur skill, Elo officiel) & Arène (gaming, classes/sorts/PV/combos)
+// Compétitif : 3 modes (Classique/Rapide/Blitz) avec Elo séparé par mode.
+// Entraînement : sans Elo (exercises Vs IA / Sprint / Catégorie / Défi / Marathon).
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,22 +16,25 @@ model Player {
   isBot       Boolean  @default(false)
   name        String
 
-  // Compétitif (pur skill — Chess.com style)
-  elo         Int      @default(1000) // elo compétitif (principal)
-  wins        Int      @default(0)    // victoires compétitif
-  losses      Int      @default(0)    // défaites compétitif
+  // Compétitif — Elo séparé par mode (style Chess.com)
+  eloClassique Int     @default(1000)
+  eloRapide    Int     @default(1000)
+  eloBlitz     Int     @default(1000)
+  winsClassique Int    @default(0)
+  lossesClassique Int  @default(0)
+  winsRapide   Int     @default(0)
+  lossesRapide Int     @default(0)
+  winsBlitz    Int     @default(0)
+  lossesBlitz  Int     @default(0)
 
-  // Arène (gaming — classes/sorts/PV/combos)
-  eloArena    Int      @default(1000)
+  // Entraînement (sans Elo, juste compteur)
   winsArena   Int      @default(0)
   lossesArena Int      @default(0)
-  bestCombo   Int      @default(0) // arène uniquement
 
   // Global
   level       Int      @default(1)
   xp          Int      @default(0)
   title       String?
-  class       String? // classe préférée (arène)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -39,22 +43,19 @@ model Player {
   @@map("players")
 }
 
-/// Historique des duels du joueur local (compétitif & arène).
+/// Historique des duels du joueur local.
 model Match {
   id            Int      @id @default(autoincrement())
   playerId      Int
   player        Player   @relation(fields: [playerId], references: [id])
   universe      String   @default("competitive") // "competitive" | "arena"
-  playerClass   String?  // arène uniquement
-  opponentClass String?  // arène uniquement
   opponentName  String
   result        String   // WIN | LOSE
-  playerHP      Int      @default(0)  // arène: PV restants ; compétitif: score du joueur
-  opponentHP    Int      @default(0)  // arène: PV restants ; compétitif: score adverse
-  maxCombo      Int      @default(0)  // arène uniquement
+  playerScore   Int      @default(0)  // score du joueur (points ou questions réussies)
+  opponentScore Int      @default(0)  // score adverse
   avgTimeMs     Int      @default(0)
   accuracy      Float    @default(0)
-  mode          String   // PRACTICE | QUICK | BLITZ | RANKED
+  mode          String   // CLASSIQUE | RAPIDE | BLITZ | PRACTICE
   eloChange     Int      @default(0)
   eloAfter      Int      @default(1000)
   xpGained      Int      @default(0)

@@ -5,12 +5,13 @@ import type { GameMode } from "@/lib/game/types";
 import {
   advanceComp,
   createCompDuel,
+  endBlitz,
   isCompGameOver,
+  modeConfig,
   opponentFire,
   playerSubmit,
   timeoutQuestion,
   type CompDuelState,
-  TARGET_SCORE,
 } from "@/lib/game/competitive-engine";
 import type { MatchResultPayload } from "@/lib/store";
 import { sound } from "@/lib/sound";
@@ -23,7 +24,6 @@ export interface DuelStats {
   answered: number;
   correct: number;
   totalTimeMs: number;
-  bestCombo: number;
 }
 
 export interface UseCompDuelOpts {
@@ -38,6 +38,7 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
 
   const [state, setState] = useState<CompDuelState>(() => createCompDuel(mode));
   const [timeLeftMs, setTimeLeftMs] = useState<number>(state.timeLimitMs);
+  const [matchTimeLeftMs, setMatchTimeLeftMs] = useState<number>(state.matchTimeLimitMs);
   const [opponentThinking, setOpponentThinking] = useState(false);
   const [flash, setFlash] = useState<"correct" | "wrong" | "critical" | null>(null);
 
@@ -48,10 +49,12 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   const opponentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const matchCountdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const wrongClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionStart = useRef(Date.now());
-  const playerStats = useRef<DuelStats>({ answered: 0, correct: 0, totalTimeMs: 0, bestCombo: 0 });
-  const opponentStats = useRef<DuelStats>({ answered: 0, correct: 0, totalTimeMs: 0, bestCombo: 0 });
+  const matchStart = useRef(Date.now());
+  const playerStats = useRef<DuelStats>({ answered: 0, correct: 0, totalTimeMs: 0 });
+  const opponentStats = useRef<DuelStats>({ answered: 0, correct: 0, totalTimeMs: 0 });
   const finished = useRef(false);
   const savedRef = useRef(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,6 +65,8 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
 
   onSaveRef.current = onSave;
   onQuitRef.current = onQuit;
+
+  const cfg = modeConfig(mode);
 
   const commit = (ns: CompDuelState) => {
     if (!ns.question && ns.phase !== "gameover") return;
@@ -77,11 +82,9 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     if (opponentTimer.current) clearTimeout(opponentTimer.current);
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     if (countdownTimer.current) clearInterval(countdownTimer.current);
+    if (matchCountdownTimer.current) clearInterval(matchCountdownTimer.current);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     if (wrongClearTimer.current) clearTimeout(wrongClearTimer.current);
-    opponentTimer.current = null;
-    advanceTimer.current = null;
-    countdownTimer.current = null;
   };
   const clearQuestionTimers = () => {
     if (opponentTimer.current) { clearTimeout(opponentTimer.current); opponentTimer.current = null; }
@@ -94,27 +97,16 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     clearTimers();
     sound.bell();
     const s = stateRef.current;
-    const won = s.playerScore >= TARGET_SCORE;
-    // Met à jour l'état vers gameover avec winner (pour le rendu de l'écran).
-    const gameOverState: CompDuelState = {
-      ...s,
-      phase: "gameover",
-      winner: won ? "player" : "opponent",
-    };
-    stateRef.current = gameOverState;
-    setState(gameOverState);
+    const won = s.playerScore > s.opponentScore;
     const st = playerStats.current;
     if (!savedRef.current) {
       savedRef.current = true;
       onSaveRef.current({
         universe: "competitive",
-        result: won ? "WIN" : "LOSE",
-        playerClass: null,
-        opponentClass: null,
+        result: won ? "WIN" : s.playerScore < s.opponentScore ? "LOSE" : "LOSE",
         opponentName,
-        playerHP: s.playerScore,
-        opponentHP: s.opponentScore,
-        maxCombo: st.bestCombo,
+        playerScore: s.playerScore,
+        opponentScore: s.opponentScore,
         avgTimeMs: st.correct > 0 ? Math.round(st.totalTimeMs / st.correct) : 0,
         accuracy: st.answered > 0 ? Math.round((st.correct / st.answered) * 100) : 0,
         mode,
@@ -159,8 +151,6 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   const handleOpponentFire = () => {
     if (finished.current || opponentDoneRef.current || resolvedRef.current) return;
     if (!stateRef.current.question || !stateRef.current.opponentPlan) return;
-    const prevScore = stateRef.current.opponentScore;
-    const prevCombo = stateRef.current.opponentCombo;
     const r = opponentFire(stateRef.current);
     commit(r.state);
     opponentDoneRef.current = true;
@@ -169,17 +159,9 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     if (r.scored) {
       opponentStats.current.correct += 1;
       opponentStats.current.totalTimeMs += r.thinkMs;
-      opponentStats.current.bestCombo = Math.max(opponentStats.current.bestCombo, r.state.opponentCombo);
       resolvedRef.current = true;
       clearQuestionTimers();
       sound.tac();
-    }
-    // combo sound for opponent
-    if (r.state.opponentCombo > prevCombo && (r.state.opponentCombo === 3 || r.state.opponentCombo === 5 || r.state.opponentCombo === 8)) {
-      void prevCombo;
-    }
-    if (r.state.opponentScore > prevScore) {
-      // opponent scored — no aggressive sound, just tac
     }
     if (isCompGameOver(r.state)) {
       finalize();
@@ -202,7 +184,6 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
       const elapsed = Date.now() - questionStart.current;
       const left = Math.max(0, s.timeLimitMs - elapsed);
       setTimeLeftMs(left);
-      // tick sound when < 3s
       const secLeft = Math.ceil(left / 1000);
       if (left <= 3000 && left > 0 && secLeft !== lastTickSec.current) {
         lastTickSec.current = secLeft;
@@ -228,20 +209,17 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     const val = inputRef.current.trim();
     if (val === "") return;
     const timeMs = Date.now() - questionStart.current;
-    const prevCombo = stateRef.current.playerCombo;
     const r = playerSubmit(stateRef.current, val, timeMs);
     commit(r.state);
+    if (r.alreadyLocked) return;
     playerStats.current.answered += 1;
     if (r.correct) {
       playerStats.current.correct += 1;
       playerStats.current.totalTimeMs += timeMs;
-      const newCombo = r.state.playerCombo;
-      playerStats.current.bestCombo = Math.max(playerStats.current.bestCombo, newCombo);
       resolvedRef.current = true;
       clearQuestionTimers();
       opponentDoneRef.current = true;
       setOpponentThinking(false);
-      // critical if < 2s
       if (timeMs < 2000) {
         triggerFlash("critical");
         sound.critical();
@@ -249,10 +227,7 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
         triggerFlash("correct");
         sound.correct();
       }
-      // combo sound
-      if (newCombo > prevCombo && (newCombo === 3 || newCombo === 5 || newCombo === 8 || newCombo === 10)) {
-        sound.combo(newCombo);
-      }
+      if (wrongClearTimer.current) clearTimeout(wrongClearTimer.current);
     } else if (r.timedOut) {
       resolvedRef.current = true;
       opponentDoneRef.current = true;
@@ -260,6 +235,7 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
       triggerFlash("wrong");
       sound.wrong();
     } else {
+      // Mauvaise réponse : lockout. L'adversaire peut encore répondre.
       triggerFlash("wrong");
       sound.wrong();
       if (wrongClearTimer.current) clearTimeout(wrongClearTimer.current);
@@ -283,10 +259,31 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   useEffect(() => {
     finished.current = false;
     savedRef.current = false;
-    playerStats.current = { answered: 0, correct: 0, totalTimeMs: 0, bestCombo: 0 };
-    opponentStats.current = { answered: 0, correct: 0, totalTimeMs: 0, bestCombo: 0 };
+    playerStats.current = { answered: 0, correct: 0, totalTimeMs: 0 };
+    opponentStats.current = { answered: 0, correct: 0, totalTimeMs: 0 };
+    matchStart.current = Date.now();
     sound.swoosh();
     startQuestionRef.current(stateRef.current);
+
+    // Blitz : countdown du match (2 min)
+    if (cfg.matchTimeLimitMs > 0) {
+      setMatchTimeLeftMs(cfg.matchTimeLimitMs);
+      matchCountdownTimer.current = setInterval(() => {
+        const elapsed = Date.now() - matchStart.current;
+        const left = Math.max(0, cfg.matchTimeLimitMs - elapsed);
+        setMatchTimeLeftMs(left);
+        if (left <= 0) {
+          // Fin du match Blitz
+          if (!finished.current) {
+            clearQuestionTimers();
+            const ns = endBlitz(stateRef.current);
+            commit(ns);
+            finalize();
+          }
+        }
+      }, TICK_MS);
+    }
+
     return () => {
       clearTimers();
     };
@@ -311,7 +308,6 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
         playerStats.current.answered > 0
           ? Math.round((playerStats.current.correct / playerStats.current.answered) * 100)
           : 0,
-      bestCombo: playerStats.current.bestCombo,
     },
     opponent: {
       answered: opponentStats.current.answered,
@@ -324,7 +320,6 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
         opponentStats.current.answered > 0
           ? Math.round((opponentStats.current.correct / opponentStats.current.answered) * 100)
           : 0,
-      bestCombo: opponentStats.current.bestCombo,
     },
   };
 
@@ -333,6 +328,7 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
   return {
     state,
     timeLeftMs,
+    matchTimeLeftMs,
     opponentThinking,
     flash,
     input: inputRef.current,
@@ -342,7 +338,9 @@ export function useCompetitiveDuel(opts: UseCompDuelOpts) {
     },
     submit,
     quit,
-    targetScore: TARGET_SCORE,
+    targetScore: cfg.targetScore,
+    isBlitz: cfg.matchTimeLimitMs > 0,
+    matchTimeLimitMs: cfg.matchTimeLimitMs,
     stats,
     matchStartTs: state.matchStartTs,
     matchDurationMs,

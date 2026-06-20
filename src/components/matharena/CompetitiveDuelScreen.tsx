@@ -11,12 +11,13 @@ import { sound } from "@/lib/sound";
 import type { CompLogEntry } from "@/lib/game/competitive-engine";
 import type { MatchResultPayload } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
 
 const MODE_LABEL: Record<string, string> = {
   PRACTICE: "Entraînement",
   QUICK: "Rapide",
   BLITZ: "Blitz",
-  RANKED: "Classé",
+  RANKED: "Classique",
 };
 
 const LOG_ICON: Record<CompLogEntry["kind"], string> = {
@@ -82,13 +83,10 @@ export function CompetitiveDuelScreen() {
       api
         .saveMatch({
           universe: "competitive",
-          playerClass: null,
-          opponentClass: null,
           opponentName: payload.opponentName,
           result: payload.result,
-          playerHP: payload.playerHP,
-          opponentHP: payload.opponentHP,
-          maxCombo: payload.maxCombo,
+          playerScore: payload.playerScore,
+          opponentScore: payload.opponentScore,
           avgTimeMs: payload.avgTimeMs,
           accuracy: payload.accuracy,
           mode: payload.mode,
@@ -120,6 +118,8 @@ export function CompetitiveDuelScreen() {
     stats,
     matchStartTs,
     matchDurationMs,
+    matchTimeLeftMs,
+    isBlitz,
     isGameOver,
     winner,
   } = duel;
@@ -218,6 +218,16 @@ export function CompetitiveDuelScreen() {
 
       {/* ===== MAIN FOCUS ZONE ===== */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 min-h-0 gap-5">
+        {/* Blitz match countdown */}
+        {isBlitz && !isGameOver && (
+          <div className="flex items-center gap-2 text-sm text-[#9c8e7a]">
+            <Clock size={16} weight="regular" />
+            <span className="font-mono font-bold text-[#e8823d]">
+              {fmtDuration(matchTimeLeftMs)}
+            </span>
+            <span className="text-xs">restant</span>
+          </div>
+        )}
         {/* Timer */}
         <div className="flex flex-col items-center gap-1.5">
           <div
@@ -341,12 +351,12 @@ export function CompetitiveDuelScreen() {
               </div>
               <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#7a7164] mb-1">
                 <span>Score</span>
-                <span className="font-mono text-[#2a2520]">{state.playerScore}/{targetScore}</span>
+                <span className="font-mono text-[#2a2520]">{state.playerScore}{!isBlitz && `/${targetScore}`}</span>
               </div>
               <div className="h-1.5 rounded-full bg-[#efe8db] overflow-hidden">
                 <div
                   className="h-full bg-[#e8823d] rounded-full transition-[width] duration-400 ease-out"
-                  style={{ width: `${(state.playerScore / targetScore) * 100}%` }}
+                  style={{ width: `${isBlitz ? Math.min(100, (state.playerScore / Math.max(1, state.playerScore + state.opponentScore)) * 100) : (state.playerScore / targetScore) * 100}%` }}
                 />
               </div>
             </div>
@@ -366,12 +376,12 @@ export function CompetitiveDuelScreen() {
                   </div>
                   <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#7a7164] mb-1">
                     <span>Score</span>
-                    <span className="font-mono text-[#2a2520]">{state.opponentScore}/{targetScore}</span>
+                    <span className="font-mono text-[#2a2520]">{state.opponentScore}{!isBlitz && `/${targetScore}`}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-[#efe8db] overflow-hidden">
                     <div
-                      className="h-full bg-[#7a7164] rounded-full transition-[width] duration-400 ease-out"
-                      style={{ width: `${(state.opponentScore / targetScore) * 100}%` }}
+                      className="h-full bg-[#9c8e7a] rounded-full transition-[width] duration-400 ease-out"
+                      style={{ width: `${isBlitz ? Math.min(100, (state.opponentScore / Math.max(1, state.playerScore + state.opponentScore)) * 100) : (state.opponentScore / targetScore) * 100}%` }}
                     />
                   </div>
                 </>
@@ -388,12 +398,12 @@ export function CompetitiveDuelScreen() {
                   </div>
                   <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#7a7164] mb-1">
                     <span>Score</span>
-                    <span className="font-mono text-[#6b5f4f]">{state.opponentScore}/{targetScore}</span>
+                    <span className="font-mono text-[#6b5f4f]">{state.opponentScore}{!isBlitz && `/${targetScore}`}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-[#efe8db] overflow-hidden">
                     <div
-                      className="h-full bg-[#7a7164] rounded-full transition-[width] duration-400 ease-out"
-                      style={{ width: `${(state.opponentScore / targetScore) * 100}%` }}
+                      className="h-full bg-[#9c8e7a] rounded-full transition-[width] duration-400 ease-out"
+                      style={{ width: `${isBlitz ? Math.min(100, (state.opponentScore / Math.max(1, state.playerScore + state.opponentScore)) * 100) : (state.opponentScore / targetScore) * 100}%` }}
                     />
                   </div>
                   {opponentThinking && (
@@ -563,8 +573,8 @@ export function CompetitiveDuelScreen() {
                   <span className="font-mono text-[#2a2520]">{stats.player.accuracy > 0 ? `${stats.player.accuracy}% (${stats.player.correct}/${stats.player.answered})` : "—"}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-[#ebe2d2]">
-                  <span className="text-sm text-[#6b5f4f]">Meilleur combo</span>
-                  <span className="font-mono text-[#2a2520]">x{stats.player.bestCombo}</span>
+                  <span className="text-sm text-[#6b5f4f]">Questions tentées</span>
+                  <span className="font-mono text-[#2a2520]">{stats.player.answered}</span>
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm text-[#6b5f4f]">Durée</span>

@@ -1,41 +1,37 @@
-import type { ClassId, GameMode } from "./game/types";
+import type { GameMode } from "./game/types";
 import type { Universe } from "./game/progression";
 
 export interface Profile {
   id: number;
   name: string;
-  // compétitif
-  elo: number;            // alias eloCompetitive
-  eloCompetitive: number;
-  wins: number;
-  losses: number;
-  winrate: number;
-  // arène
-  eloArena: number;
+  eloClassique: number;
+  eloRapide: number;
+  eloBlitz: number;
+  winsClassique: number;
+  lossesClassique: number;
+  winsRapide: number;
+  lossesRapide: number;
+  winsBlitz: number;
+  lossesBlitz: number;
+  winrateClassique: number;
+  winrateRapide: number;
+  winrateBlitz: number;
   winsArena: number;
   lossesArena: number;
-  winrateArena: number;
-  bestCombo: number;
-  // global
   level: number;
   xp: number;
   title: string | null;
-  class: string | null;
-  totalMatches: number;       // compétitif
-  totalMatchesArena: number;
+  totalMatches: number;
   levelInfo: { level: number; current: number; needed: number };
 }
 
 export interface MatchRecord {
   id: number;
   universe: Universe;
-  playerClass: string | null;
-  opponentClass: string | null;
   opponentName: string;
   result: "WIN" | "LOSE";
-  playerHP: number;   // arène: PV ; compétitif: score
-  opponentHP: number;
-  maxCombo: number;
+  playerScore: number;
+  opponentScore: number;
   avgTimeMs: number;
   accuracy: number;
   mode: string;
@@ -48,17 +44,14 @@ export interface MatchRecord {
 export interface LeaderboardEntry {
   id: number;
   name: string;
-  elo: number;            // elo de l'univers sélectionné
-  eloCompetitive: number;
-  eloArena: number;
+  elo: number;
+  eloClassique: number;
+  eloRapide: number;
+  eloBlitz: number;
   level: number;
-  wins: number;           // de l'univers sélectionné
+  wins: number;
   losses: number;
-  winsArena: number;
-  lossesArena: number;
-  bestCombo: number;
   title: string | null;
-  class: string | null;
   isBot: boolean;
   isMe: boolean;
   winrate: number;
@@ -66,13 +59,10 @@ export interface LeaderboardEntry {
 
 export interface SaveMatchBody {
   universe: Universe;
-  playerClass: ClassId | null;   // arène uniquement
-  opponentClass: ClassId | null; // arène uniquement
   opponentName: string;
   result: "WIN" | "LOSE";
-  playerHP: number;   // arène: PV ; compétitif: score
-  opponentHP: number;
-  maxCombo: number;   // arène uniquement
+  playerScore: number;
+  opponentScore: number;
   avgTimeMs: number;
   accuracy: number;
   mode: GameMode;
@@ -93,7 +83,7 @@ async function json<T>(res: Response): Promise<T> {
 
 export const api = {
   getProfile: () => fetch("/api/profile").then(json<Profile>),
-  patchProfile: (body: { name?: string; title?: string; class?: string }) =>
+  patchProfile: (body: { name?: string; title?: string | null }) =>
     fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -107,6 +97,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then(json<SaveMatchResponse>),
-  getLeaderboard: (universe: Universe = "competitive") =>
-    fetch(`/api/leaderboard?universe=${universe}`).then(json<LeaderboardEntry[]>),
+  getLeaderboard: (mode: "classique" | "rapide" | "blitz" = "classique") =>
+    fetch(`/api/leaderboard?mode=${mode}`).then(json<LeaderboardEntry[]>),
 };

@@ -1,11 +1,10 @@
 // MathArena — Compétitive duel engine (pur skill, Chess.com style).
-// Pas de classes, pas de sorts, pas de PV. Les deux joueurs voient la même question.
-// Premier à `TARGET_SCORE` bonnes réponses gagne. Mauvaise réponse = combo reset + retry (pas de lockout).
+// 3 modes : Classique (premier à 10, 8s) / Rapide (premier à 5, 5s) / Blitz (2 min, plus de bonnes réponses).
+// Mauvaise réponse = lockout (l'adversaire peut encore répondre). Timeout = question invalidée pour les deux.
+// Pas de combos. Difficulté moyenne fixe. Tous types de calculs mélangés.
 
 import type { GameMode, Question } from "./types";
 import { generateQuestion } from "./math";
-
-export const TARGET_SCORE = 7;
 
 export type CompPhase = "question" | "resolved" | "gameover";
 
@@ -13,7 +12,7 @@ export interface CompLogEntry {
   id: number;
   side: "player" | "opponent" | "system";
   text: string;
-  kind: "point" | "miss" | "timeout" | "combo" | "info";
+  kind: "point" | "miss" | "timeout" | "lockout" | "info";
   ts: number;
 }
 
@@ -22,16 +21,15 @@ export interface CompDuelState {
   question: Question;
   questionStartTs: number;
   matchStartTs: number;
-  timeLimitMs: number;
+  timeLimitMs: number;       // temps par question
+  matchTimeLimitMs: number;  // temps total du match (Blitz = 120000, autres = 0 = illimité)
   phase: CompPhase;
   playerScore: number;
   opponentScore: number;
-  playerCombo: number;
-  opponentCombo: number;
+  playerLocked: boolean;     // lockout si mauvaise réponse
   questionIndex: number;
   winner: "player" | "opponent" | null;
   log: CompLogEntry[];
-  /** plan pré-tiré de l'IA pour la question courante */
   opponentPlan: { thinkMs: number; correct: boolean } | null;
 }
 
@@ -45,62 +43,72 @@ function makeLog(
   return { id: logId++, side, text, kind, ts };
 }
 
+// --- Config par mode ---
+
+export interface ModeConfig {
+  targetScore: number;      // 0 = pas de target (Blitz = time-based)
+  timeLimitMs: number;      // temps par question
+  matchTimeLimitMs: number; // temps total du match (0 = illimité)
+  label: string;
+  winFormat: string;
+}
+
+export function modeConfig(mode: GameMode): ModeConfig {
+  switch (mode) {
+    case "RANKED": // Classique
+      return { targetScore: 10, timeLimitMs: 8000, matchTimeLimitMs: 0, label: "Classique", winFormat: "Premier à 10 points" };
+    case "QUICK": // Rapide
+      return { targetScore: 5, timeLimitMs: 5000, matchTimeLimitMs: 0, label: "Rapide", winFormat: "Premier à 5 points" };
+    case "BLITZ": // Blitz
+      return { targetScore: 0, timeLimitMs: 5000, matchTimeLimitMs: 120000, label: "Blitz", winFormat: "Plus de bonnes réponses en 2 min" };
+    default:
+      return { targetScore: 10, timeLimitMs: 8000, matchTimeLimitMs: 0, label: "Classique", winFormat: "Premier à 10 points" };
+  }
+}
+
 export function compTimeLimit(mode: GameMode): number {
-  if (mode === "BLITZ") return 3000;
-  if (mode === "QUICK") return 8000;
-  return 10000; // RANKED
+  return modeConfig(mode).timeLimitMs;
 }
 
-// --- IA adversaire (pur skill) ---
+// --- IA adversaire ---
 
-function aiAccuracy(diff: Question["difficulty"]): number {
-  const base: Record<Question["difficulty"], number> = {
-    facile: 0.9,
-    moyen: 0.78,
-    difficile: 0.62,
-    extreme: 0.45,
-    legendaire: 0.3,
-  };
-  return base[diff];
+function aiAccuracy(): number {
+  // Difficulté moyenne fixe → accuracy moyenne
+  return 0.78;
 }
 
-function aiThinkMs(diff: Question["difficulty"], mode: GameMode): number {
-  const base: Record<Question["difficulty"], number> = {
-    facile: 1500,
-    moyen: 2200,
-    difficile: 3200,
-    extreme: 4200,
-    legendaire: 5000,
-  };
-  let t = base[diff] + (Math.random() * 900 - 450);
-  if (mode === "BLITZ") t = Math.min(t, 2600);
+function aiThinkMs(mode: GameMode): number {
+  // Difficulté moyenne → temps moyen
+  let t = 2200 + (Math.random() * 900 - 450);
+  if (mode === "BLITZ") t = Math.min(t, 4500);
   return Math.max(1000, Math.round(t));
 }
 
 export function planOpponent(s: CompDuelState): { thinkMs: number; correct: boolean } {
-  const acc = aiAccuracy(s.question.difficulty);
-  return { thinkMs: aiThinkMs(s.question.difficulty, s.mode), correct: Math.random() < acc };
+  return { thinkMs: aiThinkMs(s.mode), correct: Math.random() < aiAccuracy() };
 }
 
 // --- Création / helpers ---
 
 export function createCompDuel(mode: GameMode): CompDuelState {
   const now = Date.now();
-  const question = generateQuestion({ mode, questionIndex: 0 });
+  const cfg = modeConfig(mode);
+  // Difficulté moyenne fixe, tous types mélangés
+  const question = generateQuestion({ mode, questionIndex: 0, forcedDifficulty: "moyen" });
   const state: CompDuelState = {
     mode,
     question,
     questionStartTs: now,
     matchStartTs: now,
-    timeLimitMs: compTimeLimit(mode),
+    timeLimitMs: cfg.timeLimitMs,
+    matchTimeLimitMs: cfg.matchTimeLimitMs,
     phase: "question",
     playerScore: 0,
     opponentScore: 0,
-    playerCombo: 0,
-    opponentCombo: 0,
+    playerLocked: false,
     questionIndex: 0,
     winner: null,
-    log: [makeLog("system", "Match commencé — premier à 7 points gagne", "info", now)],
+    log: [makeLog("system", `Match commencé — ${cfg.winFormat}`, "info", now)],
     opponentPlan: null,
   };
   state.opponentPlan = planOpponent(state);
@@ -117,35 +125,39 @@ function clone(s: CompDuelState): CompDuelState {
 }
 
 export function isCompGameOver(s: CompDuelState): boolean {
-  return s.playerScore >= TARGET_SCORE || s.opponentScore >= TARGET_SCORE;
+  const cfg = modeConfig(s.mode);
+  // Score-based (Classique/Rapide)
+  if (cfg.targetScore > 0) {
+    return s.playerScore >= cfg.targetScore || s.opponentScore >= cfg.targetScore;
+  }
+  // Blitz : game over géré par le timer du hook (matchTimeLimitMs)
+  return false;
 }
 
-/** Le joueur soumet une réponse. Mauvaise = combo reset + retry (pas de lockout). */
+/** Le joueur soumet une réponse. Mauvaise = lockout (pas de retry). */
 export function playerSubmit(
   prev: CompDuelState,
   raw: string,
   timeMs: number,
-): { state: CompDuelState; correct: boolean; timedOut: boolean } {
+): { state: CompDuelState; correct: boolean; timedOut: boolean; alreadyLocked: boolean } {
   const s = clone(prev);
+  if (s.playerLocked) {
+    return { state: s, correct: false, timedOut: false, alreadyLocked: true };
+  }
   const timedOut = timeMs >= s.timeLimitMs;
   if (timedOut) {
-    return { state: s, correct: false, timedOut: true };
+    return { state: s, correct: false, timedOut: true, alreadyLocked: false };
   }
   const val = Number.parseInt(raw, 10);
   const correct = Number.isFinite(val) && val === s.question.answer;
   if (correct) {
     s.playerScore += 1;
-    s.playerCombo += 1;
     s.log.push(makeLog("player", `✓ Toi — réponse en ${(timeMs / 1000).toFixed(1)}s — ${s.playerScore} point${s.playerScore > 1 ? "s" : ""}`, "point"));
-    // Milestones combo
-    if (s.playerCombo === 3 || s.playerCombo === 5 || s.playerCombo === 8 || s.playerCombo === 10) {
-      s.log.push(makeLog("player", `🔥 Combo x${s.playerCombo}`, "combo"));
-    }
   } else {
-    s.playerCombo = 0;
-    s.log.push(makeLog("player", `✗ Erreur — tu as répondu ${raw}`, "miss"));
+    s.playerLocked = true;
+    s.log.push(makeLog("player", `✗ Erreur — tu as répondu ${raw} — verrouillé`, "lockout"));
   }
-  return { state: s, correct, timedOut: false };
+  return { state: s, correct, timedOut: false, alreadyLocked: false };
 }
 
 /** L'adversaire "tire" sa réponse pour la question courante. */
@@ -160,14 +172,9 @@ export function opponentFire(prev: CompDuelState): {
   s.opponentPlan = null;
   if (plan.correct) {
     s.opponentScore += 1;
-    s.opponentCombo += 1;
     s.log.push(makeLog("opponent", `✓ Adversaire — réponse en ${(plan.thinkMs / 1000).toFixed(1)}s — ${s.opponentScore} point${s.opponentScore > 1 ? "s" : ""}`, "point"));
-    if (s.opponentCombo === 3 || s.opponentCombo === 5 || s.opponentCombo === 8) {
-      s.log.push(makeLog("opponent", `🔥 Adversaire combo x${s.opponentCombo}`, "combo"));
-    }
     return { state: s, scored: true, thinkMs: plan.thinkMs };
   }
-  s.opponentCombo = 0;
   s.log.push(makeLog("opponent", "✗ Adversaire a manqué", "miss"));
   return { state: s, scored: false, thinkMs: plan.thinkMs };
 }
@@ -177,23 +184,33 @@ export function advanceComp(prev: CompDuelState): CompDuelState {
   const s = clone(prev);
   if (isCompGameOver(s)) {
     s.phase = "gameover";
-    s.winner = s.playerScore >= TARGET_SCORE ? "player" : "opponent";
-    s.log.push(makeLog("system", s.winner === "player" ? "Victoire !" : "Défaite.", "info"));
+    s.winner = s.playerScore > s.opponentScore ? "player" : s.playerScore < s.opponentScore ? "opponent" : null;
+    s.log.push(makeLog("system", s.winner === "player" ? "Victoire !" : s.winner === "opponent" ? "Défaite." : "Égalité.", "info"));
     return s;
   }
   s.questionIndex += 1;
-  const next = generateQuestion({ mode: s.mode, questionIndex: s.questionIndex });
+  const next = generateQuestion({ mode: s.mode, questionIndex: s.questionIndex, forcedDifficulty: "moyen" });
   if (next && next.text) s.question = next;
   s.questionStartTs = Date.now();
   s.timeLimitMs = compTimeLimit(s.mode);
+  s.playerLocked = false;
   s.opponentPlan = planOpponent(s);
   s.phase = "question";
   return s;
 }
 
-/** Timeout : la question est annulée (personne ne marque), on révèle la réponse. */
+/** Timeout : la question est invalidée pour les deux (personne ne marque). */
 export function timeoutQuestion(prev: CompDuelState): CompDuelState {
   const s = clone(prev);
-  s.log.push(makeLog("system", `⏱ Temps écoulé — réponse: ${s.question?.answer ?? "?"}`, "timeout"));
+  s.log.push(makeLog("system", `⏱ Temps écoulé — réponse: ${s.question?.answer ?? "?"} — question invalidée`, "timeout"));
+  return s;
+}
+
+/** Fin de match Blitz (temps écoulé). */
+export function endBlitz(prev: CompDuelState): CompDuelState {
+  const s = clone(prev);
+  s.phase = "gameover";
+  s.winner = s.playerScore > s.opponentScore ? "player" : s.playerScore < s.opponentScore ? "opponent" : null;
+  s.log.push(makeLog("system", `Temps écoulé — ${s.winner === "player" ? "Victoire !" : s.winner === "opponent" ? "Défaite." : "Égalité."}`, "info"));
   return s;
 }

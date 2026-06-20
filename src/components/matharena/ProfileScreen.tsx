@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertCircle, BarChart3, Clock, Trophy } from "lucide-react";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -35,8 +32,8 @@ import { cn } from "@/lib/utils";
    ProfileScreen — Chess.com dashboard, LIGHT WARM cream
    Sidebar + Vue générale / Statistiques / Historique (réel)
    + Succès / Amis / Paramètres (bientôt)
-   Compétitif = orange, Entraînement = peach. L'UI affiche
-   "Entraînement" (le backend conserve universe="arena").
+   3 Elos séparés par mode (Classique / Rapide / Blitz).
+   Entraînement = compteur winsArena/lossesArena (sans Elo).
    ============================================================ */
 
 type Tab = "overview" | "stats" | "history" | "achievements" | "friends" | "settings";
@@ -50,17 +47,14 @@ const NAV: { id: Tab; label: string; available: boolean }[] = [
   { id: "settings", label: "Paramètres", available: false },
 ];
 
-const MODE_LABEL: Record<string, string> = {
-  PRACTICE: "Entraînement",
+const MODE_LABELS: Record<string, string> = {
+  RANKED: "Classique",
   QUICK: "Rapide",
   BLITZ: "Blitz",
-  RANKED: "Classé",
+  PRACTICE: "Entraînement",
 };
 
-const UNIVERSE_LABEL: Record<string, string> = {
-  competitive: "Compétitif",
-  arena: "Entraînement",
-};
+const COMPETITIVE_MODES: ReadonlySet<string> = new Set(["RANKED", "QUICK", "BLITZ"]);
 
 // Stats par catégorie — valeurs réalistes statiques (l'API ne ventile pas par catégorie).
 const CATEGORIES: { label: string; pct: number }[] = [
@@ -73,6 +67,15 @@ const CATEGORIES: { label: string; pct: number }[] = [
   { label: "Pourcentages", pct: 55 },
   { label: "Logique", pct: 47 },
 ];
+
+interface ModeStat {
+  key: "classique" | "rapide" | "blitz";
+  label: string;
+  elo: number;
+  wins: number;
+  losses: number;
+  winrate: number;
+}
 
 export default function ProfileScreen() {
   const setView = useApp((s) => s.setView);
@@ -100,6 +103,8 @@ export default function ProfileScreen() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const noMatches = matches.length === 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -180,10 +185,12 @@ export default function ProfileScreen() {
                 Réessayer
               </Btn>
             </Panel>
-          ) : !profile ? null : tab === "overview" ? (
+          ) : !profile ? null : noMatches && tab !== "achievements" && tab !== "friends" && tab !== "settings" ? (
+            <EmptyState />
+          ) : tab === "overview" ? (
             <Overview profile={profile} matches={matches} />
           ) : tab === "stats" ? (
-            <StatsTab matches={matches} />
+            <StatsTab profile={profile} matches={matches} />
           ) : tab === "history" ? (
             <HistoryTab matches={matches} />
           ) : (
@@ -196,7 +203,7 @@ export default function ProfileScreen() {
 }
 
 /* ----------------------------------------------------------------
-   Sidebar profile card
+   Sidebar profile card — avatar + pseudo + XP bar + niveau
    ---------------------------------------------------------------- */
 
 function ProfileCard({ profile }: { profile: Profile }) {
@@ -218,22 +225,13 @@ function ProfileCard({ profile }: { profile: Profile }) {
           <div className="text-[22px] font-semibold leading-tight truncate text-[#2a2520] tracking-[-0.01em]">
             {profile.name}
           </div>
-          <div className="mt-1">
-            <RankBadge elo={profile.eloCompetitive} />
-          </div>
+          {profile.title ? (
+            <div className="text-xs text-[#9c8e7a] mt-0.5 truncate">{profile.title}</div>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">
-          Elo compétitif
-        </span>
-        <span className="font-mono text-lg font-semibold text-[#6b5f4f]">
-          {profile.eloCompetitive}
-        </span>
-      </div>
-
-      <div className="mt-3">
+      <div className="mt-4">
         <div className="flex items-center justify-between text-xs mb-1">
           <span className="text-[#6b5f4f]">Niveau {profile.level}</span>
           <span className="font-mono text-[#9c8e7a]">
@@ -255,13 +253,14 @@ function ProfileCard({ profile }: { profile: Profile }) {
 }
 
 /* ----------------------------------------------------------------
-   Overview
+   Overview — 3 Elos + graphe + parties récentes + catégories
    ---------------------------------------------------------------- */
 
 function Overview({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
   const setView = useApp((s) => s.setView);
+
   const compMatches = useMemo(
-    () => matches.filter((m) => m.universe === "competitive"),
+    () => matches.filter((m) => COMPETITIVE_MODES.has(m.mode)),
     [matches],
   );
 
@@ -277,22 +276,22 @@ function Overview({ profile, matches }: { profile: Profile; matches: MatchRecord
 
   return (
     <div className="space-y-4">
-      {/* Stat cards */}
+      {/* 3 Elo stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatTile
-          label="Elo compétitif"
-          value={String(profile.eloCompetitive)}
-          sub={`${profile.wins}V · ${profile.losses}D`}
+          label="Elo Classique"
+          value={String(profile.eloClassique)}
+          sub={`${profile.winrateClassique}% · ${profile.winsClassique}V-${profile.lossesClassique}D`}
         />
         <StatTile
-          label="Winrate"
-          value={`${profile.winrate}%`}
-          sub={`${profile.totalMatches} parties`}
+          label="Elo Rapide"
+          value={String(profile.eloRapide)}
+          sub={`${profile.winrateRapide}% · ${profile.winsRapide}V-${profile.lossesRapide}D`}
         />
         <StatTile
-          label="Niveau"
-          value={String(profile.level)}
-          sub={`${profile.levelInfo.current}/${profile.levelInfo.needed} XP`}
+          label="Elo Blitz"
+          value={String(profile.eloBlitz)}
+          sub={`${profile.winrateBlitz}% · ${profile.winsBlitz}V-${profile.lossesBlitz}D`}
         />
       </div>
 
@@ -305,7 +304,7 @@ function Overview({ profile, matches }: { profile: Profile; matches: MatchRecord
             <Trophy className="w-4 h-4 text-[#e8823d]" />
             <h2 className="text-sm font-semibold text-[#2a2520]">Progression Elo</h2>
           </div>
-          <SectionLabel>Compétitif</SectionLabel>
+          <SectionLabel>Compétitif · tous modes</SectionLabel>
         </div>
         {chartData.length === 0 ? (
           <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-center">
@@ -423,7 +422,7 @@ function RecentTable({ matches }: { matches: MatchRecord[] }) {
       opponent: <span className="text-[#2a2520]">vs {m.opponentName}</span>,
       result: <ResultBadge result={m.result} />,
       elo: <EloDelta change={m.eloChange} />,
-      mode: <ModeBadge universe={m.universe} mode={m.mode} />,
+      mode: <ModeBadge mode={m.mode} />,
     }));
     // Pad to minimum 5 rows for density.
     while (base.length < 5) {
@@ -482,8 +481,8 @@ function EloDelta({ change }: { change: number }) {
   );
 }
 
-function ModeBadge({ universe, mode }: { universe: string; mode: string }) {
-  const training = universe === "arena";
+function ModeBadge({ mode }: { mode: string }) {
+  const training = mode === "PRACTICE";
   return (
     <span
       className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
@@ -493,119 +492,149 @@ function ModeBadge({ universe, mode }: { universe: string; mode: string }) {
         border: `1px solid ${training ? "#f0b27a55" : "#ebe2d2"}`,
       }}
     >
-      {MODE_LABEL[mode] ?? mode}
+      {MODE_LABELS[mode] ?? mode}
     </span>
   );
 }
 
 /* ----------------------------------------------------------------
-   Stats tab — winrate par mode (BarChart)
+   Stats tab — 3 cartes (une par mode) + synthèse
    ---------------------------------------------------------------- */
 
-function StatsTab({ matches }: { matches: MatchRecord[] }) {
-  const compMatches = useMemo(
-    () => matches.filter((m) => m.universe === "competitive"),
-    [matches],
-  );
+function StatsTab({ profile, matches }: { profile: Profile; matches: MatchRecord[] }) {
+  const modes: ModeStat[] = [
+    {
+      key: "classique",
+      label: "Classique",
+      elo: profile.eloClassique,
+      wins: profile.winsClassique,
+      losses: profile.lossesClassique,
+      winrate: profile.winrateClassique,
+    },
+    {
+      key: "rapide",
+      label: "Rapide",
+      elo: profile.eloRapide,
+      wins: profile.winsRapide,
+      losses: profile.lossesRapide,
+      winrate: profile.winrateRapide,
+    },
+    {
+      key: "blitz",
+      label: "Blitz",
+      elo: profile.eloBlitz,
+      wins: profile.winsBlitz,
+      losses: profile.lossesBlitz,
+      winrate: profile.winrateBlitz,
+    },
+  ];
 
-  const byMode = useMemo(() => {
-    const modes = ["RANKED", "QUICK", "BLITZ"] as const;
-    return modes.map((mode) => {
-      const ms = compMatches.filter((m) => m.mode === mode);
-      return {
-        mode: MODE_LABEL[mode],
-        wins: ms.filter((m) => m.result === "WIN").length,
-        losses: ms.filter((m) => m.result === "LOSE").length,
-      };
-    });
-  }, [compMatches]);
-
-  const isEstimate = compMatches.length === 0;
-  const data = isEstimate
-    ? [
-        { mode: "Classé", wins: 12, losses: 8 },
-        { mode: "Rapide", wins: 24, losses: 14 },
-        { mode: "Blitz", wins: 9, losses: 11 },
-      ]
-    : byMode;
+  const arenaTotal = profile.winsArena + profile.lossesArena;
+  const arenaWinrate = arenaTotal > 0 ? Math.round((profile.winsArena / arenaTotal) * 100) : 0;
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {modes.map((m) => (
+          <ModeStatCard key={m.key} stat={m} />
+        ))}
+      </div>
+
+      <OrnamentDivider />
+
       <Panel className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#e8823d]" />
-            <h2 className="text-sm font-semibold text-[#2a2520]">
-              Victoires et défaites par mode
-            </h2>
-          </div>
-          {isEstimate && (
-            <span
-              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border"
-              style={{ color: "#c9974a", borderColor: "#c9974a55", background: "#c9974a12" }}
-            >
-              estimation
-            </span>
-          )}
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-4 h-4 text-[#f0b27a]" />
+          <h2 className="text-sm font-semibold text-[#2a2520]">Entraînement</h2>
+          <span
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border"
+            style={{ color: "#c9974a", borderColor: "#c9974a55", background: "#c9974a12" }}
+          >
+            sans Elo
+          </span>
         </div>
-        <div style={{ height: 260 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
-              <CartesianGrid stroke="#ebe2d2" strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="mode"
-                tick={{ fill: "#9c8e7a", fontSize: 12 }}
-                axisLine={{ stroke: "#ebe2d2" }}
-                tickLine={{ stroke: "#ebe2d2" }}
-              />
-              <YAxis
-                tick={{ fill: "#9c8e7a", fontSize: 11, fontFamily: "var(--font-mono)" }}
-                axisLine={{ stroke: "#ebe2d2" }}
-                tickLine={{ stroke: "#ebe2d2" }}
-                allowDecimals={false}
-                width={36}
-              />
-              <RTooltip content={<StatsTooltip />} cursor={{ fill: "#efe8db99" }} />
-              <Legend
-                wrapperStyle={{ fontSize: 12, color: "#6b5f4f" }}
-                formatter={(v) => <span style={{ color: "#6b5f4f" }}>{v}</span>}
-              />
-              <Bar dataKey="wins" name="Victoires" stackId="a" fill="#7a9b6e" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-              <Bar dataKey="losses" name="Défaites" stackId="a" fill="#b5524a" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <SynthTile label="Victoires" value={String(profile.winsArena)} color="#7a9b6e" />
+          <SynthTile label="Défaites" value={String(profile.lossesArena)} color="#b5524a" />
+          <SynthTile label="Winrate" value={`${arenaWinrate}%`} color="#6b5f4f" />
         </div>
       </Panel>
 
       <Panel className="p-4">
         <h2 className="text-sm font-semibold mb-3 text-[#2a2520]">Synthèse</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <SynthTile label="Modes joués" value={String(new Set(compMatches.map((m) => m.mode)).size)} />
-          <SynthTile label="Total compétitif" value={String(compMatches.length)} />
+          <SynthTile label="Modes joués" value={String(new Set(matches.map((m) => m.mode)).size)} color="#6b5f4f" />
+          <SynthTile
+            label="Total compétitif"
+            value={String(matches.filter((m) => COMPETITIVE_MODES.has(m.mode)).length)}
+            color="#6b5f4f"
+          />
           <SynthTile
             label="Total entraînement"
-            value={String(matches.filter((m) => m.universe === "arena").length)}
+            value={String(matches.filter((m) => m.mode === "PRACTICE").length)}
+            color="#6b5f4f"
           />
-          <SynthTile label="Catégories" value="8" />
+          <SynthTile label="Catégories" value="8" color="#6b5f4f" />
         </div>
       </Panel>
     </div>
   );
 }
 
-function SynthTile({ label, value }: { label: string; value: string }) {
+function ModeStatCard({ stat }: { stat: ModeStat }) {
+  const total = stat.wins + stat.losses;
+  return (
+    <Panel className="p-4">
+      <div className="flex items-center justify-between">
+        <SectionLabel>{stat.label}</SectionLabel>
+        <RankBadge elo={stat.elo} />
+      </div>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="font-mono font-bold text-2xl text-[#2a2520]">{stat.elo}</span>
+        <span className="text-xs text-[#9c8e7a]">Elo</span>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-xs">
+        <span className="font-mono">
+          <span className="text-[#7a9b6e]">{stat.wins}V</span>
+          <span className="text-[#9c8e7a]"> · </span>
+          <span className="text-[#b5524a]">{stat.losses}D</span>
+        </span>
+        <span className="font-mono text-[#6b5f4f]">{total} parties</span>
+      </div>
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-[11px] mb-1 text-[#9c8e7a]">
+          <span>Winrate</span>
+          <span className="font-mono">{stat.winrate}%</span>
+        </div>
+        <div
+          className="relative h-1.5 rounded-sm overflow-hidden"
+          style={{ background: "#efe8db", border: "1px solid #ebe2d2" }}
+        >
+          <div
+            className="absolute inset-y-0 left-0 transition-[width] duration-500"
+            style={{ width: `${Math.min(100, stat.winrate)}%`, background: "#e8823d" }}
+          />
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function SynthTile({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="rounded-md p-3 bg-[#efe8db] border border-[#ebe2d2]">
       <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">
         {label}
       </div>
-      <div className="mt-1 font-mono text-lg font-semibold text-[#2a2520]">{value}</div>
+      <div className="mt-1 font-mono text-lg font-semibold" style={{ color }}>
+        {value}
+      </div>
     </div>
   );
 }
 
 /* ----------------------------------------------------------------
-   History tab — full table with Univers + Mode columns
+   History tab — full table
    ---------------------------------------------------------------- */
 
 function HistoryTab({ matches }: { matches: MatchRecord[] }) {
@@ -616,28 +645,28 @@ function HistoryTab({ matches }: { matches: MatchRecord[] }) {
           {formatDistanceToNow(new Date(m.createdAt), { addSuffix: false, locale: fr })}
         </span>
       ),
-      universe: <UniverseBadge universe={m.universe} />,
       opponent: <span className="text-[#2a2520]">vs {m.opponentName}</span>,
       result: <ResultBadge result={m.result} />,
       elo: <EloDelta change={m.eloChange} />,
-      mode: <span className="text-[#6b5f4f]">{MODE_LABEL[m.mode] ?? m.mode}</span>,
+      mode: <ModeBadge mode={m.mode} />,
+      score: (
+        <span className="font-mono text-[#6b5f4f]">
+          {m.playerScore}-{m.opponentScore}
+        </span>
+      ),
     }));
     while (base.length < 5) {
       base.push({
         date: <span className="text-[#c9bba0]">—</span>,
-        universe: <span className="text-[#c9bba0]">—</span>,
         opponent: <span className="text-[#c9bba0]">—</span>,
         result: <span className="text-[#c9bba0]">—</span>,
         elo: <span className="text-[#c9bba0]">—</span>,
         mode: <span className="text-[#c9bba0]">—</span>,
+        score: <span className="text-[#c9bba0]">—</span>,
       });
     }
     return base;
   }, [matches]);
-
-  if (matches.length === 0) {
-    return <EmptyState />;
-  }
 
   return (
     <Panel className="overflow-hidden">
@@ -648,11 +677,11 @@ function HistoryTab({ matches }: { matches: MatchRecord[] }) {
       <DataTable
         columns={[
           { key: "date", header: "Date", className: "w-28" },
-          { key: "universe", header: "Univers", className: "w-28" },
           { key: "opponent", header: "Adversaire" },
           { key: "result", header: "Résultat", className: "w-24" },
           { key: "elo", header: "Elo ±", className: "w-20 text-right" },
-          { key: "mode", header: "Mode", className: "w-24" },
+          { key: "score", header: "Score", className: "w-24 text-right" },
+          { key: "mode", header: "Mode", className: "w-28" },
         ]}
         rows={rows}
         rowKey={(_, i) => String(i)}
@@ -661,21 +690,9 @@ function HistoryTab({ matches }: { matches: MatchRecord[] }) {
   );
 }
 
-function UniverseBadge({ universe }: { universe: string }) {
-  const training = universe === "arena";
-  return (
-    <span
-      className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
-      style={{
-        color: training ? "#c9974a" : "#e8823d",
-        background: training ? "#faead8" : "#fce5d1",
-        border: `1px solid ${training ? "#f0b27a55" : "#e8823d55"}`,
-      }}
-    >
-      {UNIVERSE_LABEL[universe] ?? universe}
-    </span>
-  );
-}
+/* ----------------------------------------------------------------
+   Empty state — 0 match
+   ---------------------------------------------------------------- */
 
 function EmptyState() {
   const setView = useApp((s) => s.setView);
@@ -736,25 +753,6 @@ function EloTooltip({ active, payload, label }: TooltipProps) {
     >
       <div className="text-[#9c8e7a]">Partie #{label}</div>
       <div className="font-mono text-[#2a2520]">{payload[0].value} Elo</div>
-    </div>
-  );
-}
-
-function StatsTooltip({ active, payload, label }: TooltipProps) {
-  if (!active || !payload || payload.length === 0) return null;
-  return (
-    <div
-      className="rounded-md px-2.5 py-1.5 text-xs space-y-0.5"
-      style={{ background: "#faf6f0", border: "1px solid #dcd0bc" }}
-    >
-      <div className="text-[#9c8e7a]">{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} className="font-mono flex items-center gap-1.5">
-          <span className="inline-block w-2 h-2 rounded-sm" style={{ background: p.color }} />
-          <span className="text-[#6b5f4f]">{p.name}</span>
-          <span className="text-[#2a2520]">{p.value}</span>
-        </div>
-      ))}
     </div>
   );
 }

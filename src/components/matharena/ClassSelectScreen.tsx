@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
 const COMP_MODES: { value: "RANKED" | "QUICK" | "BLITZ"; label: string; desc: string }[] = [
-  { value: "RANKED", label: "Classé", desc: "Elo officiel. Difficulté adaptative." },
-  { value: "QUICK", label: "Rapide", desc: "Sans enjeu. 8s par question." },
-  { value: "BLITZ", label: "Blitz", desc: "3s par question. Impacte l'Elo." },
+  { value: "RANKED", label: "Classique", desc: "Premier à 10 points · 8s/question · Elo Classique" },
+  { value: "QUICK", label: "Rapide", desc: "Premier à 5 points · 5s/question · Elo Rapide" },
+  { value: "BLITZ", label: "Blitz", desc: "2 minutes · Plus de bonnes réponses · Elo Blitz" },
 ];
 
 const OPPONENTS = [
@@ -27,6 +27,7 @@ const TRAINING_INFO: Record<string, { name: string; desc: string }> = {
   sprint: { name: "Sprint solo", desc: "2 minutes de calcul mental non-stop." },
   category: { name: "Catégorie spécifique", desc: "Travaille une catégorie de calcul." },
   daily: { name: "Défi du jour", desc: "Challenge unique quotidien." },
+  marathon: { name: "Marathon", desc: "50 questions, sans pression de temps." },
 };
 
 export function ClassSelectScreen() {
@@ -78,7 +79,7 @@ export function ClassSelectScreen() {
             <SectionLabel className="mb-2 block">Exercice</SectionLabel>
             <div className="flex items-center gap-3">
               <span className="text-2xl">
-                {trainingExercise === "vsia" ? "🤖" : trainingExercise === "sprint" ? "⚡" : trainingExercise === "category" ? "🎯" : "🧩"}
+                {trainingExercise === "vsia" ? "🤖" : trainingExercise === "sprint" ? "⚡" : trainingExercise === "category" ? "🎯" : trainingExercise === "daily" ? "🧩" : "🏁"}
               </span>
               <div>
                 <div className="text-sm font-semibold text-[#f0b27a]">

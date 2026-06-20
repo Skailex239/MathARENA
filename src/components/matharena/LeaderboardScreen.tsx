@@ -9,7 +9,6 @@ import {
   OrnamentDivider,
   PageTitle,
   Panel,
-  RankBadge,
   Tabs,
 } from "@/components/matharena/ui";
 import { api, type LeaderboardEntry } from "@/lib/api";
@@ -17,18 +16,23 @@ import { useApp } from "@/lib/store";
 
 /* ============================================================
    LeaderboardScreen — Chess.com style, LIGHT WARM cream
-   Classement compétitif (Elo officiel, pur skill).
-   Filtres : Global / Par mode / Amis.
+   3 classements séparés par mode (Classique / Rapide / Blitz).
    Top 3 surlignés peach tint, ligne utilisateur bordure orange.
    ============================================================ */
 
-type Filter = "global" | "mode" | "friends";
+type Mode = "classique" | "rapide" | "blitz";
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: "global", label: "Global" },
-  { value: "mode", label: "Par mode" },
-  { value: "friends", label: "Amis" },
+const MODE_FILTERS: { value: Mode; label: string }[] = [
+  { value: "classique", label: "Classique" },
+  { value: "rapide", label: "Rapide" },
+  { value: "blitz", label: "Blitz" },
 ];
+
+const MODE_DESC: Record<Mode, string> = {
+  classique: "Premier à 10 points · 8s/question — la référence endurance.",
+  rapide: "Premier à 5 points · 5s/question — rythme soutenu.",
+  blitz: "2 minutes — le plus de bonnes réponses gagne.",
+};
 
 export default function LeaderboardScreen() {
   const setView = useApp((s) => s.setView);
@@ -36,13 +40,13 @@ export default function LeaderboardScreen() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("global");
+  const [mode, setMode] = useState<Mode>("classique");
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (m: Mode) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getLeaderboard("competitive");
+      const data = await api.getLeaderboard(m);
       setEntries(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
@@ -52,15 +56,8 @@ export default function LeaderboardScreen() {
   }, []);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const visible = useMemo<LeaderboardEntry[]>(() => {
-    if (filter === "friends") {
-      return entries.filter((e) => e.isMe);
-    }
-    return entries;
-  }, [entries, filter]);
+    void reload(mode);
+  }, [mode, reload]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -79,16 +76,16 @@ export default function LeaderboardScreen() {
 
       <OrnamentDivider />
 
-      {/* Filters */}
+      {/* Mode filters */}
       <div className="mb-4 flex items-center gap-3 flex-wrap">
         <Tabs
-          options={FILTERS}
-          value={filter}
-          onChange={setFilter}
+          options={MODE_FILTERS}
+          value={mode}
+          onChange={setMode}
           accent="orange"
         />
         <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9c8e7a]">
-          Compétitif · Elo officiel
+          Elo {MODE_FILTERS.find((f) => f.value === mode)?.label}
         </span>
       </div>
 
@@ -99,27 +96,18 @@ export default function LeaderboardScreen() {
         <Panel className="p-6 flex items-center gap-3 text-sm">
           <AlertCircle className="w-4 h-4 shrink-0 text-[#b5524a]" />
           <span className="flex-1 text-[#6b5f4f]">{error}</span>
-          <Btn size="sm" variant="secondary" onClick={() => void reload()}>
+          <Btn size="sm" variant="secondary" onClick={() => void reload(mode)}>
             Réessayer
           </Btn>
         </Panel>
-      ) : filter === "friends" && visible.length === 0 ? (
-        <Panel className="p-10 text-center">
-          <div className="text-sm text-[#6b5f4f]">
-            Tu n&apos;as pas encore d&apos;amis sur MathArena.
-          </div>
-          <div className="text-xs mt-1 text-[#9c8e7a]">
-            La liste d&apos;amis arrive dans une prochaine mise à jour.
-          </div>
-        </Panel>
       ) : (
         <Panel className="overflow-hidden">
-          <LeaderboardTable entries={visible} />
+          <LeaderboardTable entries={entries} />
         </Panel>
       )}
 
       {/* Pagination texte */}
-      {!loading && !error && visible.length > 0 && (
+      {!loading && !error && entries.length > 0 && (
         <div className="mt-4 flex items-center justify-center gap-4 text-sm text-[#9c8e7a]">
           <button
             type="button"
@@ -142,13 +130,7 @@ export default function LeaderboardScreen() {
       {/* Note */}
       <div className="mt-4 flex items-start gap-2 text-xs text-[#9c8e7a]">
         <Trophy className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#e8823d]" />
-        <span>
-          {filter === "mode"
-            ? "Classement agrégé — tous modes compétitifs confondus (Classé, Rapide, Blitz)."
-            : filter === "friends"
-              ? "Compare ton Elo avec tes amis. Liste d&apos;amis bientôt disponible."
-              : "Le classement compétitif prend en compte tous les modes sauf l&apos;entraînement."}
-        </span>
+        <span>{MODE_DESC[mode]}</span>
       </div>
     </div>
   );
@@ -171,9 +153,8 @@ function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
           {e.isBot && <BotBadge />}
         </div>
       ),
-      division: <RankBadge elo={e.elo} />,
-      elo: <span className="font-mono font-semibold text-[#2a2520]">{e.elo}</span>,
       level: <span className="font-mono text-[#6b5f4f]">{e.level}</span>,
+      elo: <span className="font-mono font-semibold text-[#2a2520]">{e.elo}</span>,
       vd: (
         <span className="font-mono">
           <span className="text-[#7a9b6e]">{e.wins}</span>
@@ -181,18 +162,17 @@ function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
           <span className="text-[#b5524a]">{e.losses}</span>
         </span>
       ),
-      trend: <Trend winrate={e.winrate} />,
+      winrate: <WinratePill winrate={e.winrate} total={e.wins + e.losses} />,
     }));
     // Pad to minimum 5 rows.
     while (base.length < 5) {
       base.push({
         rank: <span className="text-[#c9bba0]">—</span>,
         player: <span className="text-[#c9bba0]">—</span>,
-        division: <span className="text-[#c9bba0]">—</span>,
-        elo: <span className="text-[#c9bba0]">—</span>,
         level: <span className="text-[#c9bba0]">—</span>,
+        elo: <span className="text-[#c9bba0]">—</span>,
         vd: <span className="text-[#c9bba0]">—</span>,
-        trend: <span className="text-[#c9bba0]">—</span>,
+        winrate: <span className="text-[#c9bba0]">—</span>,
       });
     }
     return base;
@@ -215,11 +195,10 @@ function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
       columns={[
         { key: "rank", header: "#", className: "w-12" },
         { key: "player", header: "Joueur" },
-        { key: "division", header: "Rang", className: "w-32" },
-        { key: "elo", header: "Elo", className: "w-20 text-right" },
-        { key: "level", header: "Niveau", className: "w-20 text-right" },
+        { key: "level", header: "Niveau", className: "w-24 text-right" },
+        { key: "elo", header: "Elo", className: "w-24 text-right" },
         { key: "vd", header: "V-D", className: "w-24 text-right" },
-        { key: "trend", header: "Tendance", className: "w-20 text-center" },
+        { key: "winrate", header: "Winrate", className: "w-28 text-right" },
       ]}
       rows={rows}
       rowKey={(_, i) => String(i)}
@@ -266,19 +245,16 @@ function BotBadge() {
   );
 }
 
-function Trend({ winrate }: { winrate: number }) {
-  let arrow = "—";
-  let color = "#9c8e7a";
-  if (winrate >= 55) {
-    arrow = "▲";
-    color = "#7a9b6e";
-  } else if (winrate <= 45) {
-    arrow = "▼";
-    color = "#b5524a";
+function WinratePill({ winrate, total }: { winrate: number; total: number }) {
+  if (total === 0) {
+    return <span className="font-mono text-[#9c8e7a]">—</span>;
   }
+  let color = "#9c8e7a";
+  if (winrate >= 55) color = "#7a9b6e";
+  else if (winrate <= 45) color = "#b5524a";
   return (
-    <span className="font-mono text-sm" style={{ color }}>
-      {arrow}
+    <span className="font-mono" style={{ color }}>
+      {winrate}%
     </span>
   );
 }

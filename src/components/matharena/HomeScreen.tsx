@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const COMP_MODES = [
-  { value: "RANKED", label: "Classé" },
+  { value: "RANKED", label: "Classique" },
   { value: "QUICK", label: "Rapide" },
   { value: "BLITZ", label: "Blitz" },
 ] as const;
@@ -19,6 +19,7 @@ const TRAINING_EXERCISES = [
   { id: "sprint", emoji: "⚡", name: "Sprint solo", desc: "2 min de calcul mental non-stop" },
   { id: "category", emoji: "🎯", name: "Catégorie spécifique", desc: "Travaille tes points faibles" },
   { id: "daily", emoji: "🧩", name: "Défi du jour", desc: "Nouveau challenge chaque jour" },
+  { id: "marathon", emoji: "🏁", name: "Marathon", desc: "50 questions, sans pression" },
 ] as const;
 
 const NEWS = [
@@ -121,9 +122,9 @@ export function HomeScreen() {
                 </div>
 
                 <p className="text-sm text-[#6b5f4f] mb-5">
-                  Premier à 7 points · Elo officiel · Pur skill
-                  {mode === "BLITZ" && " · 3s par question"}
-                  {mode === "RANKED" && " · Difficulté adaptative"}
+                  {mode === "RANKED" && "Premier à 10 points · 8s par question · Elo Classique"}
+                  {mode === "QUICK" && "Premier à 5 points · 5s par question · Elo Rapide"}
+                  {mode === "BLITZ" && "2 minutes · Plus de bonnes réponses gagne · Elo Blitz"}
                 </p>
 
                 <div className="flex justify-end">
@@ -233,7 +234,7 @@ export function HomeScreen() {
               </div>
               <div className="flex gap-3">
                 <span className="font-mono text-[#e8823d] font-bold shrink-0">04</span>
-                <span>Premier à <span className="text-[#2a2520] font-medium">7 points</span> remporte le duel.</span>
+                <span>Premier à <span className="text-[#2a2520] font-medium">10 points</span> (Classique) ou <span className="text-[#2a2520] font-medium">5 points</span> (Rapide) remporte le duel.</span>
               </div>
             </div>
           </Panel>

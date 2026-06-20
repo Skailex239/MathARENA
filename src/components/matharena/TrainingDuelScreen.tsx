@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { Question } from "@/lib/game/types";
 
 const SPRINT_DURATION_MS = 120000; // 2 min
+const MARATHON_QUESTIONS = 50;
 const TICK_MS = 100;
 
 function fmtDuration(ms: number): string {
@@ -44,6 +45,7 @@ export function TrainingDuelScreen() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const finishedRef = useRef(false);
   const endMatchRef = useRef<() => void>(() => {});
+  const isMarathon = trainingExercise === "marathon";
 
   const endMatch = () => {
     if (finishedRef.current) return;
@@ -56,12 +58,9 @@ export function TrainingDuelScreen() {
     setLastResult({
       universe: "arena",
       result: correct > 0 ? "WIN" : "LOSE",
-      playerClass: null,
-      opponentClass: null,
       opponentName: "Entraînement",
-      playerHP: correct,
-      opponentHP: 0,
-      maxCombo: 0,
+      playerScore: correct,
+      opponentScore: 0,
       avgTimeMs,
       accuracy,
       mode: "PRACTICE",
@@ -69,13 +68,10 @@ export function TrainingDuelScreen() {
     // save (entraînement = universe arena, mode PRACTICE = pas d'Elo)
     api.saveMatch({
       universe: "arena",
-      playerClass: null,
-      opponentClass: null,
       opponentName: "Entraînement",
       result: correct > 0 ? "WIN" : "LOSE",
-      playerHP: correct,
-      opponentHP: 0,
-      maxCombo: 0,
+      playerScore: correct,
+      opponentScore: 0,
       avgTimeMs,
       accuracy,
       mode: "PRACTICE",
@@ -90,14 +86,14 @@ export function TrainingDuelScreen() {
     const timeMs = Date.now() - questionStart;
     const val = Number.parseInt(input, 10);
     const isCorrect = Number.isFinite(val) && val === question.answer;
-    setAnswered((a) => a + 1);
+    const newAnswered = answered + 1;
+    setAnswered(newAnswered);
     if (isCorrect) {
       setCorrect((c) => c + 1);
       setTotalTimeMs((t) => t + timeMs);
       setFlash("correct");
       sound.correct();
-      // next question
-      setQuestion(generateQuestion({ mode: "QUICK", questionIndex: answered + 1 }));
+      setQuestion(generateQuestion({ mode: "QUICK", questionIndex: newAnswered }));
     } else {
       setFlash("wrong");
       sound.wrong();
@@ -106,6 +102,10 @@ export function TrainingDuelScreen() {
     setQuestionStart(Date.now());
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 300);
+    // Marathon : fin après 50 questions
+    if (isMarathon && newAnswered >= MARATHON_QUESTIONS) {
+      setTimeout(() => endMatchRef.current(), 100);
+    }
   };
 
   endMatchRef.current = endMatch;
@@ -113,6 +113,8 @@ export function TrainingDuelScreen() {
   useEffect(() => {
     sound.setMuted(true);
     inputRef.current?.focus();
+    // Marathon : pas de compte à rebours (juste un compteur de questions)
+    if (isMarathon) return;
     countdownRef.current = setInterval(() => {
       setTimeLeftMs((prev) => {
         const next = prev - TICK_MS;
@@ -127,7 +129,7 @@ export function TrainingDuelScreen() {
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (flashTimer.current) clearTimeout(flashTimer.current);
     };
-  }, []);
+  }, [isMarathon]);
 
   useEffect(() => {
     if (!gameOver) inputRef.current?.focus();
@@ -160,18 +162,18 @@ export function TrainingDuelScreen() {
 
       {/* Main focus */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 min-h-0 gap-5">
-        {/* Timer */}
+        {/* Timer / Marathon counter */}
         <div className="flex flex-col items-center gap-1.5">
           <div
-            className={cn("font-mono font-bold text-5xl sm:text-6xl leading-none", urgent && "animate-timer-pulse")}
-            style={{ color: timerColor }}
+            className={cn("font-mono font-bold text-5xl sm:text-6xl leading-none", !isMarathon && urgent && "animate-timer-pulse")}
+            style={{ color: isMarathon ? "#f0b27a" : timerColor }}
           >
-            {fmtDuration(timeLeftMs)}
+            {isMarathon ? `${answered}/${MARATHON_QUESTIONS}` : fmtDuration(timeLeftMs)}
           </div>
           <div className="w-48 sm:w-64 h-1 rounded-full bg-[#efe8db] overflow-hidden">
             <div
               className="h-full transition-[width] duration-100 ease-linear rounded-full"
-              style={{ width: `${timePct}%`, background: timerColor }}
+              style={{ width: `${isMarathon ? (answered / MARATHON_QUESTIONS) * 100 : timePct}%`, background: isMarathon ? "#f0b27a" : timerColor }}
             />
           </div>
         </div>
@@ -312,8 +314,8 @@ export function TrainingDuelScreen() {
                   </div>
                 )}
                 <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-[#c9bfb0]">Durée</span>
-                  <span className="font-mono text-[#2a2520]">2:00</span>
+                  <span className="text-sm text-[#c9bfb0]">{isMarathon ? "Questions" : "Durée"}</span>
+                  <span className="font-mono text-[#2a2520]">{isMarathon ? `${MARATHON_QUESTIONS}` : "2:00"}</span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -345,4 +347,5 @@ const TRAINING_LABEL: Record<string, string> = {
   sprint: "Sprint solo",
   category: "Catégorie",
   daily: "Défi du jour",
+  marathon: "Marathon",
 };
