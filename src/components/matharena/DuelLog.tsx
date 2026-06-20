@@ -6,15 +6,15 @@ import type { DuelLogEntry } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 
 const KIND_STYLE: Record<DuelLogEntry["kind"], string> = {
-  crit: "text-[#ff3d8b] font-bold",
-  hit: "text-foreground",
-  miss: "text-[#f44747]",
-  heal: "text-[#3ddc84]",
-  shield: "text-[#3ddc84]",
-  spell: "text-[#b15cff]",
-  ult: "text-[#ffb02e] font-bold",
-  combo: "text-[#ffb02e] font-semibold",
-  info: "text-muted-foreground",
+  crit: "text-[#ff0080] font-bold",
+  hit: "text-white",
+  miss: "text-[#ef4444]",
+  heal: "text-[#22c55e]",
+  shield: "text-[#22c55e]",
+  spell: "text-[#7c3aed]",
+  ult: "text-[#f59e0b] font-bold",
+  combo: "text-[#00d4ff] font-semibold",
+  info: "text-[#8b949e]",
 };
 
 export function DuelLog({ entries }: { entries: DuelLogEntry[] }) {
@@ -25,14 +25,11 @@ export function DuelLog({ entries }: { entries: DuelLogEntry[] }) {
 
   const recent = entries.slice(-40);
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur p-3 h-full flex flex-col">
-      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-3 h-full flex flex-col">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8b949e] mb-2">
         Journal de combat
       </span>
-      <div
-        ref={ref}
-        className="scrollbar-neon flex-1 overflow-y-auto space-y-1 pr-1 text-xs"
-      >
+      <div ref={ref} className="scrollbar-neo flex-1 overflow-y-auto space-y-1 pr-1 text-xs min-h-[80px]">
         <AnimatePresence initial={false}>
           {recent.map((e) => (
             <motion.div

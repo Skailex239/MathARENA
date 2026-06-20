@@ -1,23 +1,34 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Syne, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const syne = Syne({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["700", "800"],
+  display: "swap",
+});
+
+const jetbrains = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "MathArena — Ton cerveau est ton arme",
+  title: "MathArena — Your brain is your weapon",
   description:
-    "MathArena : le jeu compétitif 1v1 de calcul mental en temps réel. Classes, sorts, combos, ultimes, mode classé Elo. Affronte d'autres joueurs ou l'IA.",
+    "MathArena : la plateforme compétitive de duel 1v1 de calcul mental. Classes, sorts, combos, ultimes, Elo. Affronte d'autres joueurs ou l'IA.",
   keywords: [
     "MathArena",
     "calcul mental",
@@ -30,21 +41,21 @@ export const metadata: Metadata = {
   authors: [{ name: "MathArena" }],
   icons: { icon: "/logo.svg" },
   openGraph: {
-    title: "MathArena — Ton cerveau est ton arme",
+    title: "MathArena — Your brain is your weapon",
     description:
-      "Jeu compétitif 1v1 de calcul mental en temps réel. Classes, sorts, combos et ultimes.",
+      "Plateforme compétitive de duel 1v1 de calcul mental en temps réel.",
     siteName: "MathArena",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "MathArena",
-    description: "Ton cerveau est ton arme. Duel 1v1 de calcul mental.",
+    description: "Your brain is your weapon. 1v1 mental math duel.",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#15101c",
+  themeColor: "#0D1117",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -58,7 +69,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${inter.variable} ${syne.variable} ${jetbrains.variable} antialiased bg-background text-foreground font-sans`}
       >
         {children}
         <Toaster />

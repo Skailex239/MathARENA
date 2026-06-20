@@ -163,3 +163,81 @@ Work Log:
 Stage Summary:
 - Code livré sur GitHub (main). 
 - NOTE honnête pour l'utilisateur : GitHub Pages = statique uniquement, ne peut PAS exécuter les API routes Next.js ni Prisma. Recommandation : Vercel (full-stack, zéro config). Pages possible seulement via static export + persistance localStorage (refactor à prévoir).
+
+---
+Task ID: 5
+Agent: ui-redesign-profile-leaderboard-rules (general-purpose)
+Task: Restyle Profile (sidebar + charts) / Leaderboard (table) / Rules au nouveau design system.
+
+Work Log:
+- Lecture du worklog (contexte : nouveau design system Chess.com × Lichess × Valorant × GitHub dark déjà posé via globals.css + ui.tsx + divisions.ts) et des fichiers de référence (globals.css, ui.tsx, divisions.ts, api.ts, store.ts, classes.ts, spells.ts, math.ts, types.ts, layout.tsx, table.tsx, page.tsx, anciens ProfileScreen/LeaderboardScreen/RulesScreen).
+- Note : l'ancien code utilisait `div.accent` (inexistant sur le type Division actuel qui n'a que `color`) — remplacé par usage direct de `divisionFor(elo).color` pour les glows/bordures + `RankBadge(elo)` du design system.
+- Réécriture de `src/components/matharena/ProfileScreen.tsx` :
+  - Layout sidebar + main : sidebar desktop verticale (w-56, sticky top-20, nav avec 6 items Overview/Stats/Historique/Succès/Amis/Réglages, seuls 3 premiers disponibles, badge "bientôt" sur les autres, active state avec inset shadow bleu) + sidebar mobile horizontale scrollable (scrollbar-none) en haut.
+  - Header profil : avatar emoji dans clip-hex avec bordure colorée par division (style inline `border` + `boxShadow` glow), nom éditable (Btn "Renommer" → Input + save via api.patchProfile, Echap annule, Entrée sauve), RankBadge(elo), niveau + barre XP custom (gradient #2563eb→#00d4ff + glow), Elo en gros font-mono text-glow-cyan.
+  - Grille de 10 StatTiles (Elo/Niveau/Parties/Victoires/Défaites/Winrate/Meilleur combo/Vitesse moyenne/Précision/Classe préférée) avec accents colorés (cyan/bleu/vert/rouge/ambre/violet).
+  - 2 charts Panel ~260px : AreaChart "Évolution de l'Elo" (gradient fill #2563eb, X=match #, Y=eloAfter, tooltip sombre #161b22) + BarChart "Winrate par mode" (wins #22c55e / losses #ef4444 empilés).
+  - Historique récent : scroll scrollbar-neo max-h-96, 8 derniers matchs (emoji vs emoji, opponentName, badge mode, combo, temps, date relative fr, badge WIN/LOSE coloré, eloChange font-mono coloré).
+  - Onglet Stats : BarChart "Vitesse moyenne par mode" (Cell multi-couleurs palette) + PieChart "Répartition des résultats" (donut innerRadius 48, wins #22c55e / losses #ef4444).
+  - Onglet History : Table shadcn complète avec colonnes Date/Adversaire/Classe/Résultat/Elo (change→after)/Combo/Temps/Mode, lignes colorées par résultat, scroll-x scrollbar-neo.
+  - Onglets Succès/Amis/Réglages : état "Bientôt disponible" gracieux (icône + label + badge).
+  - Empty state si 0 match (Panel + emoji + Btn "Jouer"). Btn "Nouveau duel" → setView('classselect'). Fetch parallèle getProfile + getMatches(50), skeletons dédiés, error state avec retry.
+- Réécriture de `src/components/matharena/LeaderboardScreen.tsx` :
+  - Header : barre bleue + SectionTitle "Classement" + sous-titre "Les meilleurs calculateurs de MathArena" + Btn "Nouveau duel".
+  - Podium top 3 : cards animées Framer Motion (stagger 0.08s), ordre desktop 2e|1er|3e (1er surélevé -translate-y-3), chaque card avec médaille 🥇🥈🥉, avatar clip-hex bordure couleur division, RankBadge, Elo font-mono text-glow-cyan, stats V/D/winrate, gradient bg division color.
+  - Table desktop : colonnes Rang/Joueur(emoji+nom+badge TOI/BOT)/Division(RankBadge)/Elo/Niveau/V-D/Winrate. Ligne isMe surlignée bg rgba(37,99,235,0.12) + inset shadow gauche #2563eb. Hover bg #21262d/60.
+  - Cards mobile : layout compact avec RankCell, avatar clip-hex, nom+badges, RankBadge+stats, Elo font-mono glow. Ligne isMe + podium avec glow couleur division.
+  - Footer note avec icône Crown.
+- Réécriture de `src/components/matharena/RulesScreen.tsx` :
+  - Hero compact : Panel + grid-bg + radial gradients bleu/violet, emoji 🧠, SectionTitle "Comment jouer" text-glow-cyan, intro, Btn "Lancer un duel".
+  - Section "Principe" : 4 tuiles (PV/Énergie/Bouclier/Ultime) avec icônes (Heart/Zap/Shield/Sparkles) dans badges colorés glow, valeur font-mono.
+  - Section "Dégâts selon la vitesse" : Panel avec 4 colonnes (CRIT 20 rouge / Élevé 15 ambre / Standard 10 cyan / Faible 5 violet), valeur dmg font-mono text-glow + notes mauvaise réponse (rouge) / timeout (ambre).
+  - Section "Combos" : 4 tuiles (3→x1.5 ambre / 5→x2 violet / 8→x3 cyan / 10→ULTIME rouge) avec Panel hover.
+  - Section "Classes" : mappe CLASS_LIST → cards premium (emoji clip-hex bordure couleur classe + glow, nom Syne coloré, PV font-mono, badge x2@threshold, tagline italique, passif/ultime/faiblesse avec labels colorés).
+  - Section "Sorts" : mappe SPELL_LIST → grille (emoji, nom Syne, coût énergie ambre font-mono, description, badge cible self vert/enemy rouge).
+  - Section "Modes" : 4 cards (PRACTICE violet/QUICK ambre/BLITZ rouge/RANKED bleu) avec emoji dans badge coloré, badge Elo/0 Elo.
+  - Section "Divisions" : mappe DIVISIONS → badges (emoji clip-hex bordure couleur rang + glow, nom coloré, seuil "X+ Elo" font-mono).
+  - Tous les titres de section en Syne avec petite barre bleue à gauche (shadow glow bleu) via RuleSectionTitle helper.
+- Vérifications : `bun run lint` passe (0 erreurs, 0 warnings). `bunx tsc --noEmit` : 0 erreurs sur les 3 fichiers (erreurs pré-existantes uniquement dans examples/ et skills/, non concernées). dev.log : "✓ Compiled" sans erreur après les éditions finales (un `ReferenceError: Brain is not defined` transitoire apparu pendant l'itération suite à des `void Brain` référençant un import supprimé a été corrigé en retirant les imports unused).
+- Design : palette stricte du nouveau design system (#0D1117/#161B22/#21262D/#30363D/#2563EB/#8B949E/#00D4FF/#7C3AED/#F59E0B/#22C55E/#EF4444), AUCUN indigo sauf #2563EB primary, utilitaires .glow-*/.text-glow-cyan/.grid-bg/.scrollbar-neo/.clip-hex utilisés, fonts Syne (titres via SectionTitle) / Inter (corps) / JetBrains Mono (chiffres/elo/scores), dark-first (aucun fond blanc), contrastes forts, espacement 8px, touch targets ≥ 44px (min-h-11 sur tous les Btn), pas de navbar/footer ajoutés.
+- Imports utilisés : `Btn, Panel, SectionTitle, StatTile, RankBadge` de `@/components/matharena/ui` ; `divisionFor, DIVISIONS` de divisions ; `CLASS_LIST, SPELL_LIST` ; `api, useApp` ; Recharts (AreaChart/BarChart/PieChart/Cell/Legend) ; Framer Motion (podium) ; date-fns (dates relatives fr) ; lucide-react ; shadcn Table/Input/Skeleton.
+
+Stage Summary:
+- 3 fichiers réécrits (écrasés) : `src/components/matharena/ProfileScreen.tsx` (~927 lignes, sidebar 6 tabs + 3 charts + table complète), `src/components/matharena/LeaderboardScreen.tsx` (~357 lignes, podium animé + table desktop + cards mobile), `src/components/matharena/RulesScreen.tsx` (~486 lignes, 7 sections premium depuis données de jeu). Tous 'use client', TypeScript strict sans `any`.
+- Lint : 0 erreurs, 0 warnings. Compilation Turbopack : ✓ (dev.log propre après édition finale). Type-check : 0 erreur sur les 3 fichiers (erreurs pré-existantes examples/skills non concernées).
+- Design system Chess.com × Lichess × Valorant × GitHub dark appliqué intégralement : palette exacte, primitives ui.tsx (Btn/Panel/StatTile/RankBadge/SectionTitle), utilitaires glow/grid-bg/scrollbar-neo/clip-hex, fonts Syne/Inter/JetBrains Mono, dark-first, rangs via divisionFor().color, RankBadge partout.
+- Non modifié : navbar/footer (gérés par page.tsx), store, API, game data, globals.css, ui.tsx, divisions.ts.
+
+---
+Task ID: redesign (1-4)
+Agent: main (Z.ai Code)
+Task: Refonte UI complète vers design system Chess.com × Lichess × Valorant × GitHub dark.
+
+Work Log:
+- globals.css : palette exacte spec (#0D1117/#161B22/#21262D/#30363D/#2563EB/#8B949E + cyan/purple/amber + rangs). Utilitaires glow-blue/cyan/purple/amber/danger/success, grid-bg, scrollbar-neo, clip-hex, animations (shake, correct, flash-red/green, pulse-danger/blue, float-up). Note : bleu #2563EB explicitement demandé par l'utilisateur → autorisé.
+- layout.tsx : fonts Syne (display) + Inter (sans) + JetBrains Mono (mono) via next/font.
+- divisions.ts : 9 rangs avec tier (IRON→LEGEND) + couleurs spec exactes.
+- ui.tsx : primitives branded (Btn primary/secondary/danger/ghost, Panel, SectionTitle, StatTile, HealthBar vert/ambre/rouge+pulse, EnergyBar bleu→cyan, ComboBadge, RankBadge pill couleur rang).
+- Navbar : Chess.com style (logo + Accueil/Jouer/Classement/Profil + Connexion), sticky backdrop-blur.
+- Footer : 4 colonnes + liens (Duel 1v1, Comment jouer).
+- HomeScreen : hero "Your brain is your weapon" + live players counter + Play Now/Watch Match + stats strip + How it works (3 steps) + Game modes + Leaderboard preview (fetch live) + Testimonials + CTA.
+- CombatantPanel : avatar clip-hex, RankBadge, HealthBar/EnergyBar, ComboBadge, statuts, dispo sorts/ultime, flash/shake.
+- SpellDock + EmoteDock (5 emotes limitées anti-spam) + DuelLog.
+- DuelScreen : timer top-centre (JetBrains Mono, rouge<3s+pulse), panneaux L/R, question+input glow (flash vert correct+scale / rouge+shake incorrect), sorts+emotes+log en bas.
+- ClassSelectScreen + ResultsScreen : refaits au nouveau style (cards hover glow, badges rang, carte Elo animée).
+- Subagent 5 : restyle ProfileScreen (sidebar Overview/Stats/Historique + charts AreaChart Elo + BarChart winrate + table), LeaderboardScreen (podium + table + ligne user surlignée), RulesScreen (7 sections premium).
+
+Stage Summary:
+- Refonte complète vérifiée via Agent Browser + VLM (home desktop+mobile, duel desktop+mobile, results, profile, leaderboard, rules). Lint 0 erreurs. DB reset. Aucun overflow mobile. Footer sticky.
+
+---
+Task ID: 6 (redesign)
+Agent: main (Z.ai Code)
+Task: Vérification Agent Browser + push git.
+
+Work Log:
+- Agent Browser : home validée VLM (dark, typo bold, Play Now bleu, style esport). Duel validé VLM (timer top, panneaux L/R, question centrée, sorts en bas). Réponse correcte testée (Suite 3,5,7→9, avancement Q2). Results validé (carte Elo 984 -16 BRONZE +30 XP). Profile validé (sidebar + 10 StatTiles + AreaChart Elo + BarChart winrate + historique). Leaderboard validé (podium + table + badges BOT). Rules validé (7 sections). Mobile 390px : pas d'overflow, home + duel validés VLM.
+- Lint 0 erreurs. DB reset (Joueur 1000 Elo 0 match). Push git sur main.
+
+Stage Summary:
+- Redesign livré et vérifié. App premium esport dark-first.

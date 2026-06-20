@@ -36,12 +36,9 @@ export function SpellDock({
   const ultUnlocked = combo >= 10;
 
   const handleSpell = (id: SpellId, cost: number) => {
-    if (locked) {
-      toast("Patientez la prochaine question", { description: "Les sorts se lancent pendant une question active." });
-      return;
-    }
+    if (locked) return;
     if (!comboUnlocked) {
-      toast("Combo insuffisant", { description: "Atteins un combo de 8 pour débloquer les sorts." });
+      toast("Sorts verrouillés", { description: "Atteins un combo de 8 pour débloquer les sorts." });
       return;
     }
     if (energy < cost) {
@@ -52,34 +49,15 @@ export function SpellDock({
     if (!ok) toast("Impossible de lancer ce sort maintenant.");
   };
 
-  const handleUlt = () => {
-    if (locked) return;
-    if (!ultUnlocked) {
-      toast("Ultime verrouillé", { description: "Atteins un combo de 10 pour débloquer ton ultime." });
-      return;
-    }
-    const ok = onUlt();
-    if (!ok) toast("Impossible de déclencher l'ultime.");
-  };
-
-  const handleShield = () => {
-    if (locked) return;
-    if (!canShield()) {
-      toast("Bouclier indisponible", { description: "Il faut 40 d'énergie (max 30 de bouclier)." });
-      return;
-    }
-    onShield();
-  };
-
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur p-3">
+    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Sorts &amp; Compétences
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8b949e]">
+          Sorts & Compétences
         </span>
-        <span className="text-[11px] text-muted-foreground">
-          Combo <span className="font-mono text-foreground">{combo}</span> · Énergie{" "}
-          <span className="font-mono text-foreground">{energy}</span>
+        <span className="text-[11px] text-[#8b949e] font-mono">
+          Combo <span className="text-white">{combo}</span> · Énergie{" "}
+          <span className="text-white">{energy}</span>
         </span>
       </div>
 
@@ -94,15 +72,15 @@ export function SpellDock({
               disabled={!ok}
               title={`${s.name} — ${s.description} (coût ${s.cost})`}
               className={cn(
-                "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl border p-2 transition-all min-h-[56px]",
+                "group relative flex flex-col items-center justify-center gap-0.5 rounded-lg border p-2 transition-all min-h-[56px]",
                 ok
-                  ? "border-[#b15cff]/60 bg-[#b15cff]/10 hover:bg-[#b15cff]/20 hover:scale-[1.04] cursor-pointer"
-                  : "border-border/40 bg-black/20 opacity-50 cursor-not-allowed",
+                  ? "border-[rgba(124,58,237,0.6)] bg-[rgba(124,58,237,0.1)] hover:bg-[rgba(124,58,237,0.2)] hover:-translate-y-0.5 cursor-pointer"
+                  : "border-[#30363d] bg-[#21262d] opacity-50 cursor-not-allowed",
               )}
             >
               <span className="text-xl leading-none">{s.emoji}</span>
               <span className="text-[10px] font-medium leading-none">{s.name}</span>
-              <span className="text-[9px] text-amber-400/90 leading-none">{s.cost}⚡</span>
+              <span className="text-[9px] text-[#00d4ff] leading-none font-mono">{s.cost}⚡</span>
             </button>
           );
         })}
@@ -111,28 +89,33 @@ export function SpellDock({
       <div className="grid grid-cols-2 gap-2 mt-2">
         <button
           type="button"
-          onClick={handleShield}
+          onClick={() => {
+            if (!locked && canShield()) onShield();
+            else if (!locked) toast("Bouclier indisponible", { description: "Il faut 40 d'énergie (max 30 de bouclier)." });
+          }}
           disabled={locked || !canShield()}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all min-h-[44px]",
+            "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-all min-h-[44px]",
             !locked && canShield()
-              ? "border-[#3ddc84]/60 bg-[#3ddc84]/10 hover:bg-[#3ddc84]/20 cursor-pointer"
-              : "border-border/40 bg-black/20 opacity-50 cursor-not-allowed",
+              ? "border-[rgba(34,197,94,0.6)] bg-[rgba(34,197,94,0.1)] hover:bg-[rgba(34,197,94,0.18)] cursor-pointer"
+              : "border-[#30363d] bg-[#21262d] opacity-50 cursor-not-allowed",
           )}
         >
-          🛡️ Bouclier <span className="text-[10px] text-amber-400/90">40⚡</span>
+          🛡️ Bouclier <span className="text-[10px] text-[#00d4ff] font-mono">40⚡</span>
         </button>
         <button
           type="button"
-          onClick={handleUlt}
+          onClick={() => {
+            if (!locked && canUlt()) onUlt();
+            else if (!locked) toast("Ultime verrouillé", { description: "Atteins un combo de 10." });
+          }}
           disabled={locked || !canUlt()}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-bold transition-all min-h-[44px]",
+            "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-all min-h-[44px]",
             !locked && canUlt()
-              ? "border-[#ff3d8b] bg-[#ff3d8b]/15 hover:bg-[#ff3d8b]/25 cursor-pointer animate-pulse-glow"
-              : "border-border/40 bg-black/20 opacity-50 cursor-not-allowed",
+              ? "border-[#ff0080] bg-[rgba(255,0,128,0.12)] hover:bg-[rgba(255,0,128,0.2)] cursor-pointer animate-pulse-blue"
+              : "border-[#30363d] bg-[#21262d] opacity-50 cursor-not-allowed",
           )}
-          style={ultUnlocked ? {} : undefined}
         >
           ⚡ {def.ultimate.name}
         </button>
